@@ -1,0 +1,3 @@
+ALTER TABLE "products"
+  ALTER COLUMN "wine_color" SET NOT NULL,
+  ALTER COLUMN "grape" SET NOT NULL;

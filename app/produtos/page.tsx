@@ -96,10 +96,13 @@ export default async function ProductsPage() {
             </span>
             <select
               name="wineColor"
+              required
               defaultValue=""
               className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             >
-              <option value="">Nao informado</option>
+              <option value="" disabled>
+                Selecione
+              </option>
               {Object.entries(wineColorLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -156,6 +159,7 @@ export default async function ProductsPage() {
             </span>
             <input
               name="grape"
+              required
               placeholder="Cabernet Sauvignon"
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
@@ -219,10 +223,8 @@ export default async function ProductsPage() {
                   );
                   const characteristics = [
                     productTypeLabels[product.type],
-                    product.wineColor
-                      ? wineColorLabels[product.wineColor]
-                      : null,
-                    product.grape ? `Uva ${product.grape}` : null,
+                    wineColorLabels[product.wineColor],
+                    `Uva ${product.grape}`,
                     product.country,
                     product.vintage ? `Safra ${product.vintage}` : null
                   ]

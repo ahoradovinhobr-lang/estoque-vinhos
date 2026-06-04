@@ -142,8 +142,8 @@ model Product {
   sku             String       @unique
   name            String
   type            ProductType
-  wineColor       WineColor?    @map("wine_color")
-  grape           String?
+  wineColor       WineColor     @map("wine_color")
+  grape           String
   country         String?
   supplierId      String?      @map("supplier_id") @db.Uuid
   vintage         String?
