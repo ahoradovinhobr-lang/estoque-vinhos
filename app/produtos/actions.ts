@@ -1,6 +1,6 @@
 "use server";
 
-import { ProductType, RecordStatus } from "@prisma/client";
+import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
@@ -11,6 +11,9 @@ export async function createProduct(formData: FormData) {
   const sku = String(formData.get("sku") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "") as ProductType;
+  const wineColorValue = String(formData.get("wineColor") ?? "").trim();
+  const wineColor = wineColorValue ? (wineColorValue as WineColor) : null;
+  const grape = String(formData.get("grape") ?? "").trim();
   const country = String(formData.get("country") ?? "").trim();
   const supplierId = String(formData.get("supplierId") ?? "").trim() || null;
   const vintage = String(formData.get("vintage") ?? "").trim();
@@ -27,6 +30,10 @@ export async function createProduct(formData: FormData) {
 
   if (!Object.values(ProductType).includes(type)) {
     throw new Error("Tipo de produto invalido.");
+  }
+
+  if (wineColor && !Object.values(WineColor).includes(wineColor)) {
+    throw new Error("Cor do produto invalida.");
   }
 
   const existingSku = await prisma.product.findUnique({
@@ -79,6 +86,8 @@ export async function createProduct(formData: FormData) {
       sku,
       name,
       type,
+      wineColor,
+      grape: grape || null,
       country: country || null,
       supplierId,
       vintage: vintage || null,

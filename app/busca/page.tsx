@@ -17,7 +17,7 @@ export default function SearchPage() {
           htmlFor="search"
           className="mb-2 block text-sm font-medium text-stone-700"
         >
-          Nome, SKU ou codigo de barras
+          Nome, SKU, uva ou codigo de barras
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
