@@ -29,6 +29,14 @@ enum ProductType {
   @@map("product_type")
 }
 
+enum WineColor {
+  RED   @map("red")
+  WHITE @map("white")
+  ROSE  @map("rose")
+
+  @@map("wine_color")
+}
+
 enum LocationType {
   SHELF         @map("shelf")
   WOODEN_CELLAR @map("wooden_cellar")
@@ -134,6 +142,8 @@ model Product {
   sku             String       @unique
   name            String
   type            ProductType
+  wineColor       WineColor?    @map("wine_color")
+  grape           String?
   country         String?
   supplierId      String?      @map("supplier_id") @db.Uuid
   vintage         String?
@@ -152,6 +162,8 @@ model Product {
 
   @@index([name])
   @@index([barcode])
+  @@index([wineColor])
+  @@index([grape])
   @@index([productFamilyId, barcode])
   @@map("products")
 }

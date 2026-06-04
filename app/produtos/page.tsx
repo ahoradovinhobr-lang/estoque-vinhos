@@ -1,4 +1,4 @@
-import { ProductType, RecordStatus } from "@prisma/client";
+import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import { Barcode, Plus, RotateCcw, Wine, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -13,6 +13,12 @@ import {
 const productTypeLabels: Record<ProductType, string> = {
   WINE: "Vinho",
   SPARKLING: "Espumante"
+};
+
+const wineColorLabels: Record<WineColor, string> = {
+  RED: "Tinto",
+  WHITE: "Branco",
+  ROSE: "Rose"
 };
 
 export const dynamic = "force-dynamic";
@@ -41,7 +47,7 @@ export default async function ProductsPage() {
 
       <section className="rounded-md border border-stone-200 bg-white p-4">
         <h3 className="mb-4 text-base font-semibold text-ink">Novo produto</h3>
-        <form action={createProduct} className="grid gap-3 lg:grid-cols-8">
+        <form action={createProduct} className="grid gap-3 lg:grid-cols-9">
           <label>
             <span className="mb-1 block text-sm font-medium text-stone-700">
               SKU
@@ -78,6 +84,23 @@ export default async function ProductsPage() {
                 Selecione
               </option>
               {Object.entries(productTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="mb-1 block text-sm font-medium text-stone-700">
+              Cor
+            </span>
+            <select
+              name="wineColor"
+              defaultValue=""
+              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+            >
+              <option value="">Nao informado</option>
+              {Object.entries(wineColorLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -129,6 +152,16 @@ export default async function ProductsPage() {
           </label>
           <label className="lg:col-span-2">
             <span className="mb-1 block text-sm font-medium text-stone-700">
+              Uva
+            </span>
+            <input
+              name="grape"
+              placeholder="Cabernet Sauvignon"
+              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+            />
+          </label>
+          <label className="lg:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-stone-700">
               Codigo de barras
             </span>
             <input
@@ -138,7 +171,7 @@ export default async function ProductsPage() {
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
           </label>
-          <label className="lg:col-span-3">
+          <label className="lg:col-span-9">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Observacoes
             </span>
@@ -157,7 +190,7 @@ export default async function ProductsPage() {
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-sm">
+          <table className="w-full min-w-[1120px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Produto</th>
@@ -184,6 +217,17 @@ export default async function ProductsPage() {
                     (sum, balance) => sum + balance.quantity,
                     0
                   );
+                  const characteristics = [
+                    productTypeLabels[product.type],
+                    product.wineColor
+                      ? wineColorLabels[product.wineColor]
+                      : null,
+                    product.grape ? `Uva ${product.grape}` : null,
+                    product.country,
+                    product.vintage ? `Safra ${product.vintage}` : null
+                  ]
+                    .filter((item): item is string => Boolean(item))
+                    .join(" - ");
 
                   return (
                     <tr key={product.id} className="border-b border-stone-100">
@@ -191,9 +235,7 @@ export default async function ProductsPage() {
                         <p className="font-medium text-ink">{product.name}</p>
                         <p className="inline-flex items-center gap-2 text-stone-500">
                           <Wine aria-hidden className="h-4 w-4 text-cellar" />
-                          {productTypeLabels[product.type]}
-                          {product.country ? ` - ${product.country}` : ""}
-                          {product.vintage ? ` - Safra ${product.vintage}` : ""}
+                          {characteristics}
                         </p>
                       </td>
                       <td className="px-4 py-3 text-stone-600">

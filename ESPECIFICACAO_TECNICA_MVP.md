@@ -266,6 +266,8 @@ product_family_id  uuid
 sku                string unique
 name               string
 type               enum: wine, sparkling
+wine_color         enum nullable: red, white, rose
+grape              string nullable
 country            string nullable
 supplier_id        uuid nullable
 vintage            string nullable
@@ -280,6 +282,8 @@ Regras:
 
 - SKU interno e obrigatorio e unico.
 - Todo produto deve estar vinculado a uma `ProductFamily`.
+- Cor do produto e opcional, mas quando informada deve ser uma das opcoes: tinto, branco ou rose.
+- Uva e opcional e deve aceitar texto livre para castas simples ou cortes.
 - Quando `ProductFamily.supplier_id` e `Product.supplier_id` estiverem preenchidos, os dois devem ser iguais.
 - Codigo de barras pode ser nulo.
 - Codigo de barras pode se repetir apenas entre produtos da mesma `ProductFamily` com safras diferentes.
@@ -704,6 +708,8 @@ Deve aceitar busca parcial e retornar:
 - SKU.
 - Safra.
 - Pais.
+- Cor.
+- Uva.
 - Fornecedor.
 - Quantidade total.
 - Locais com saldo.
@@ -877,6 +883,8 @@ GET  /api/imports/:id/errors
   "sku": "CAT-MAL-2021-750",
   "name": "Catena Malbec",
   "type": "wine",
+  "wineColor": "red",
+  "grape": "Malbec",
   "country": "Argentina",
   "supplierId": "uuid",
   "vintage": "2021",
@@ -1202,6 +1210,8 @@ Colunas esperadas:
 sku
 name
 type
+wine_color
+grape
 country
 supplier
 vintage

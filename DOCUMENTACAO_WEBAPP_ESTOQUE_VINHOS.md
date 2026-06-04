@@ -105,6 +105,8 @@ Campos principais:
 - SKU interno.
 - Nome.
 - Tipo: vinho ou espumante.
+- Cor: tinto, branco ou rose.
+- Uva.
 - Pais.
 - Fornecedor.
 - Safra.
@@ -193,6 +195,7 @@ Funcionalidades:
 - Editar produto existente.
 - Inativar produto.
 - Buscar por nome, safra, pais, fornecedor ou codigo de barras.
+- Buscar por cor ou uva.
 - Visualizar quantidade total e localizacoes.
 
 Campos:
@@ -200,6 +203,8 @@ Campos:
 - SKU interno.
 - Nome do produto.
 - Tipo.
+- Cor: tinto, branco ou rose.
+- Uva.
 - Pais.
 - Fornecedor.
 - Safra.
@@ -377,6 +382,8 @@ Regras:
 Deve listar:
 
 - Produto.
+- Cor.
+- Uva.
 - Safra.
 - Pais.
 - Fornecedor.
@@ -523,6 +530,8 @@ id
 sku
 name
 type
+wine_color
+grape
 country
 supplier_id
 vintage
@@ -625,6 +634,7 @@ created_at
 - Lista de produtos.
 - Filtros.
 - Cadastro e edicao.
+- Caracteristicas como tipo, cor, uva, pais e safra.
 - Visualizacao de localizacoes.
 
 ### 10.4 Locais
