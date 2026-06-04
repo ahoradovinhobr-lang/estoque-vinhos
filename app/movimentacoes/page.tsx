@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MovementType } from "@prisma/client";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
@@ -55,6 +56,7 @@ export default async function MovementsPage() {
       sourceLocation: true,
       destinationLocation: true,
       affectedLocation: true,
+      lines: true,
       user: true
     },
     orderBy: { createdAt: "desc" },
@@ -101,7 +103,7 @@ export default async function MovementsPage() {
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Produto</th>
-                <th className="px-4 py-3 text-right font-medium">Qtd</th>
+                <th className="px-4 py-3 text-right font-medium">Impacto</th>
                 <th className="px-4 py-3 font-medium">Local</th>
                 <th className="px-4 py-3 font-medium">Usuario</th>
                 <th className="px-4 py-3 font-medium">Data</th>
@@ -120,10 +122,21 @@ export default async function MovementsPage() {
               ) : (
                 movements.map((movement) => {
                   const location =
-                    movement.destinationLocation?.code ||
-                    movement.sourceLocation?.code ||
-                    movement.affectedLocation?.code ||
-                    "-";
+                    movement.movementType === MovementType.TRANSFER
+                      ? `${movement.sourceLocation?.code ?? "-"} -> ${
+                          movement.destinationLocation?.code ?? "-"
+                        }`
+                      : movement.destinationLocation?.code ||
+                        movement.sourceLocation?.code ||
+                        movement.affectedLocation?.code ||
+                        "-";
+                  const firstLine = movement.lines[0];
+                  const delta = firstLine?.quantityDelta;
+                  const impact =
+                    movement.movementType === MovementType.TRANSFER ||
+                    delta === undefined
+                      ? String(movement.quantity)
+                      : `${delta > 0 ? "+" : ""}${delta}`;
 
                   return (
                     <tr key={movement.id} className="border-b border-stone-100">
@@ -134,7 +147,7 @@ export default async function MovementsPage() {
                         {movement.product.name}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-ink">
-                        {movement.quantity}
+                        {impact}
                       </td>
                       <td className="px-4 py-3 text-stone-600">{location}</td>
                       <td className="px-4 py-3 text-stone-600">
