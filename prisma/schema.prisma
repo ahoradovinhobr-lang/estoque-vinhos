@@ -1,0 +1,297 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN    @map("admin")
+  ESTOQUE  @map("estoque")
+  CONSULTA @map("consulta")
+
+  @@map("user_role")
+}
+
+enum RecordStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+
+  @@map("record_status")
+}
+
+enum ProductType {
+  WINE      @map("wine")
+  SPARKLING @map("sparkling")
+
+  @@map("product_type")
+}
+
+enum LocationType {
+  SHELF         @map("shelf")
+  WOODEN_CELLAR @map("wooden_cellar")
+  DISPLAY       @map("display")
+  OTHER         @map("other")
+
+  @@map("location_type")
+}
+
+enum MovementType {
+  ENTRY      @map("entry")
+  EXIT       @map("exit")
+  TRANSFER   @map("transfer")
+  ADJUSTMENT @map("adjustment")
+  INVENTORY  @map("inventory")
+  LOSS       @map("loss")
+  REVERSAL   @map("reversal")
+
+  @@map("movement_type")
+}
+
+enum MovementStatus {
+  ACTIVE   @map("active")
+  REVERSED @map("reversed")
+
+  @@map("movement_status")
+}
+
+enum AuditStatus {
+  PENDING  @map("pending")
+  ADJUSTED @map("adjusted")
+  IGNORED  @map("ignored")
+
+  @@map("audit_status")
+}
+
+enum ImportStatus {
+  DRAFT     @map("draft")
+  VALIDATED @map("validated")
+  IMPORTED  @map("imported")
+  FAILED    @map("failed")
+
+  @@map("import_status")
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  role         UserRole     @default(CONSULTA)
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  movements     StockMovement[]
+  inventoryAudits InventoryAudit[]
+  importBatches ImportBatch[]
+
+  @@map("users")
+}
+
+model Supplier {
+  id        String       @id @default(uuid()) @db.Uuid
+  name      String
+  document  String?
+  phone     String?
+  email     String?
+  notes     String?
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  productFamilies ProductFamily[]
+  products        Product[]
+  movements       StockMovement[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+model ProductFamily {
+  id             String      @id @default(uuid()) @db.Uuid
+  normalizedName String      @map("normalized_name")
+  displayName    String      @map("display_name")
+  type           ProductType
+  supplierId     String?     @map("supplier_id") @db.Uuid
+  supplierKey    String      @default("sem_fornecedor") @map("supplier_key")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  products Product[]
+
+  @@unique([normalizedName, type, supplierKey], map: "product_families_unique_identity")
+  @@index([displayName])
+  @@map("product_families")
+}
+
+model Product {
+  id              String       @id @default(uuid()) @db.Uuid
+  productFamilyId String       @map("product_family_id") @db.Uuid
+  sku             String       @unique
+  name            String
+  type            ProductType
+  country         String?
+  supplierId      String?      @map("supplier_id") @db.Uuid
+  vintage         String?
+  barcode         String?
+  notes           String?
+  status          RecordStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  productFamily ProductFamily @relation(fields: [productFamilyId], references: [id])
+  supplier      Supplier?     @relation(fields: [supplierId], references: [id])
+  balances      InventoryBalance[]
+  movements     StockMovement[]
+  movementLines StockMovementLine[]
+  inventoryAudits InventoryAudit[]
+
+  @@index([name])
+  @@index([barcode])
+  @@index([productFamilyId, barcode])
+  @@map("products")
+}
+
+model StorageLocation {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  code        String       @unique
+  type        LocationType
+  description String?
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  balances             InventoryBalance[]
+  sourceMovements      StockMovement[] @relation("MovementSourceLocation")
+  destinationMovements StockMovement[] @relation("MovementDestinationLocation")
+  affectedMovements    StockMovement[] @relation("MovementAffectedLocation")
+  movementLines        StockMovementLine[]
+  inventoryAudits      InventoryAudit[]
+
+  @@index([name])
+  @@map("storage_locations")
+}
+
+model InventoryBalance {
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  storageLocationId String   @map("storage_location_id") @db.Uuid
+  quantity          Int      @default(0)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  product         Product         @relation(fields: [productId], references: [id])
+  storageLocation StorageLocation @relation(fields: [storageLocationId], references: [id])
+
+  @@unique([productId, storageLocationId], map: "inventory_balances_product_location_unique")
+  @@index([storageLocationId])
+  @@map("inventory_balances")
+}
+
+model StockMovement {
+  id                    String         @id @default(uuid()) @db.Uuid
+  productId             String         @map("product_id") @db.Uuid
+  movementType          MovementType   @map("movement_type")
+  quantity              Int
+  sourceLocationId      String?        @map("source_location_id") @db.Uuid
+  destinationLocationId String?        @map("destination_location_id") @db.Uuid
+  affectedLocationId    String?        @map("affected_location_id") @db.Uuid
+  supplierId            String?        @map("supplier_id") @db.Uuid
+  inventoryAuditId      String?        @unique @map("inventory_audit_id") @db.Uuid
+  importBatchId         String?        @map("import_batch_id") @db.Uuid
+  idempotencyKey        String?        @unique @map("idempotency_key")
+  reason                String?
+  notes                 String?
+  userId                String         @map("user_id") @db.Uuid
+  status                MovementStatus @default(ACTIVE)
+  reversedMovementId    String?        @unique @map("reversed_movement_id") @db.Uuid
+  occurredAt            DateTime       @default(now()) @map("occurred_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  product             Product          @relation(fields: [productId], references: [id])
+  sourceLocation      StorageLocation? @relation("MovementSourceLocation", fields: [sourceLocationId], references: [id])
+  destinationLocation StorageLocation? @relation("MovementDestinationLocation", fields: [destinationLocationId], references: [id])
+  affectedLocation    StorageLocation? @relation("MovementAffectedLocation", fields: [affectedLocationId], references: [id])
+  supplier            Supplier?        @relation(fields: [supplierId], references: [id])
+  inventoryAudit      InventoryAudit?  @relation(fields: [inventoryAuditId], references: [id])
+  importBatch         ImportBatch?     @relation(fields: [importBatchId], references: [id])
+  user                User             @relation(fields: [userId], references: [id])
+  reversedMovement    StockMovement?   @relation("MovementReversal", fields: [reversedMovementId], references: [id])
+  reversalMovement    StockMovement?   @relation("MovementReversal")
+  lines               StockMovementLine[]
+
+  @@index([productId, createdAt])
+  @@index([movementType])
+  @@index([status])
+  @@index([sourceLocationId])
+  @@index([destinationLocationId])
+  @@index([affectedLocationId])
+  @@map("stock_movements")
+}
+
+model StockMovementLine {
+  id                String   @id @default(uuid()) @db.Uuid
+  stockMovementId   String   @map("stock_movement_id") @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  storageLocationId String   @map("storage_location_id") @db.Uuid
+  quantityBefore    Int      @map("quantity_before")
+  quantityDelta     Int      @map("quantity_delta")
+  quantityAfter     Int      @map("quantity_after")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  stockMovement  StockMovement  @relation(fields: [stockMovementId], references: [id])
+  product        Product        @relation(fields: [productId], references: [id])
+  storageLocation StorageLocation @relation(fields: [storageLocationId], references: [id])
+
+  @@unique([stockMovementId, storageLocationId], map: "stock_movement_lines_movement_location_unique")
+  @@index([productId])
+  @@index([storageLocationId])
+  @@map("stock_movement_lines")
+}
+
+model InventoryAudit {
+  id                String      @id @default(uuid()) @db.Uuid
+  productId         String      @map("product_id") @db.Uuid
+  storageLocationId String      @map("storage_location_id") @db.Uuid
+  expectedQuantity  Int         @map("expected_quantity")
+  countedQuantity   Int         @map("counted_quantity")
+  difference        Int
+  status            AuditStatus @default(PENDING)
+  notes             String?
+  userId            String      @map("user_id") @db.Uuid
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  product         Product         @relation(fields: [productId], references: [id])
+  storageLocation StorageLocation @relation(fields: [storageLocationId], references: [id])
+  user            User            @relation(fields: [userId], references: [id])
+  adjustmentMovement StockMovement?
+
+  @@index([status])
+  @@index([productId, storageLocationId])
+  @@map("inventory_audits")
+}
+
+model ImportBatch {
+  id        String       @id @default(uuid()) @db.Uuid
+  fileName  String       @map("file_name")
+  fileHash  String       @unique @map("file_hash")
+  status    ImportStatus @default(DRAFT)
+  totalRows Int          @default(0) @map("total_rows")
+  validRows Int          @default(0) @map("valid_rows")
+  errorRows Int          @default(0) @map("error_rows")
+  userId    String       @map("user_id") @db.Uuid
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user      User            @relation(fields: [userId], references: [id])
+  movements StockMovement[]
+
+  @@index([status])
+  @@map("import_batches")
+}
