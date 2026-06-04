@@ -11,8 +11,7 @@ export async function createProduct(formData: FormData) {
   const sku = String(formData.get("sku") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "") as ProductType;
-  const wineColorValue = String(formData.get("wineColor") ?? "").trim();
-  const wineColor = wineColorValue ? (wineColorValue as WineColor) : null;
+  const wineColor = String(formData.get("wineColor") ?? "").trim() as WineColor;
   const grape = String(formData.get("grape") ?? "").trim();
   const country = String(formData.get("country") ?? "").trim();
   const supplierId = String(formData.get("supplierId") ?? "").trim() || null;
@@ -32,8 +31,12 @@ export async function createProduct(formData: FormData) {
     throw new Error("Tipo de produto invalido.");
   }
 
-  if (wineColor && !Object.values(WineColor).includes(wineColor)) {
+  if (!Object.values(WineColor).includes(wineColor)) {
     throw new Error("Cor do produto invalida.");
+  }
+
+  if (!grape) {
+    throw new Error("Uva do produto e obrigatoria.");
   }
 
   const existingSku = await prisma.product.findUnique({
@@ -87,7 +90,7 @@ export async function createProduct(formData: FormData) {
       name,
       type,
       wineColor,
-      grape: grape || null,
+      grape,
       country: country || null,
       supplierId,
       vintage: vintage || null,

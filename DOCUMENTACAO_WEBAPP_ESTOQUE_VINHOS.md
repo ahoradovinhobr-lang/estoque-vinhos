@@ -215,6 +215,7 @@ Campos:
 Regras:
 
 - O SKU interno deve ser unico e obrigatorio.
+- Tipo, cor e uva devem ser obrigatorios no cadastro do produto.
 - O codigo de barras deve ser unico quando identificar um unico produto e uma unica safra.
 - Se o mesmo codigo de barras for usado para safras diferentes, o sistema deve permitir o cadastro, mas exigir escolha manual da safra na leitura.
 - Produtos inativos nao devem aparecer como sugestao principal em novas movimentacoes.

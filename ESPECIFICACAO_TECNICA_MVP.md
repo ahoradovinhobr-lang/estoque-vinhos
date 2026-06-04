@@ -266,8 +266,8 @@ product_family_id  uuid
 sku                string unique
 name               string
 type               enum: wine, sparkling
-wine_color         enum nullable: red, white, rose
-grape              string nullable
+wine_color         enum: red, white, rose
+grape              string
 country            string nullable
 supplier_id        uuid nullable
 vintage            string nullable
@@ -282,8 +282,8 @@ Regras:
 
 - SKU interno e obrigatorio e unico.
 - Todo produto deve estar vinculado a uma `ProductFamily`.
-- Cor do produto e opcional, mas quando informada deve ser uma das opcoes: tinto, branco ou rose.
-- Uva e opcional e deve aceitar texto livre para castas simples ou cortes.
+- Cor do produto e obrigatoria e deve ser uma das opcoes: tinto, branco ou rose.
+- Uva e obrigatoria e deve aceitar texto livre para castas simples ou cortes.
 - Quando `ProductFamily.supplier_id` e `Product.supplier_id` estiverem preenchidos, os dois devem ser iguais.
 - Codigo de barras pode ser nulo.
 - Codigo de barras pode se repetir apenas entre produtos da mesma `ProductFamily` com safras diferentes.
