@@ -3,6 +3,7 @@ import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { registerLoss } from "../actions";
@@ -17,6 +18,8 @@ type MovementFormPageProps = {
 };
 
 export default async function LossPage({ searchParams }: MovementFormPageProps) {
+  await requirePagePermission("stock:write");
+
   const params = await searchParams;
   const selectedProductId = String(params?.productId ?? "");
   const [products, locations] = await Promise.all([

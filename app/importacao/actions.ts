@@ -6,7 +6,7 @@ import {
   applyInitialImport,
   simulateInitialImport
 } from "@/services/imports.service";
-import { getSystemUserId } from "@/services/system-user.service";
+import { requireActionPermission } from "@/lib/auth";
 
 import type { ImportActionState } from "./types";
 
@@ -23,6 +23,8 @@ export async function simulateImportAction(
   formData: FormData
 ): Promise<ImportActionState> {
   try {
+    await requireActionPermission("imports:write");
+
     const input = await importInput(formData);
     const result = await simulateInitialImport(input);
 
@@ -53,8 +55,8 @@ export async function applyImportAction(
 ): Promise<ImportActionState> {
   try {
     const input = await importInput(formData);
-    const userId = await getSystemUserId();
-    const result = await applyInitialImport({ ...input, userId });
+    const user = await requireActionPermission("imports:write");
+    const result = await applyInitialImport({ ...input, userId: user.id });
 
     if (!result.applied) {
       return {

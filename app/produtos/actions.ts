@@ -3,11 +3,14 @@
 import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureNoProductBalance } from "@/services/inventory.service";
 import { findOrCreateProductFamily } from "@/services/products.service";
 
 export async function createProduct(formData: FormData) {
+  await requireActionPermission("products:write");
+
   const sku = String(formData.get("sku") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "") as ProductType;
@@ -104,6 +107,8 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function inactivateProduct(formData: FormData) {
+  await requireActionPermission("products:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {
@@ -124,6 +129,8 @@ export async function inactivateProduct(formData: FormData) {
 }
 
 export async function reactivateProduct(formData: FormData) {
+  await requireActionPermission("products:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {

@@ -4,21 +4,44 @@ import {
   Barcode,
   Boxes,
   ClipboardCheck,
-  Search
+  Search,
+  type LucideIcon
 } from "lucide-react";
 import Link from "next/link";
 import { AuditStatus, MovementType } from "@prisma/client";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePageUser } from "@/lib/auth";
+import { hasPermission, type Permission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 import { movementTypeLabels } from "./movimentacoes/options";
 
-const quickActions = [
+const quickActions: Array<{
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  permission?: Permission;
+}> = [
   { label: "Busca rapida", href: "/busca", icon: Search },
-  { label: "Entrada", href: "/movimentacoes/entrada", icon: Barcode },
-  { label: "Transferencia", href: "/movimentacoes/transferencia", icon: ArrowRightLeft },
-  { label: "Inventario", href: "/inventario/novo", icon: ClipboardCheck }
+  {
+    label: "Entrada",
+    href: "/movimentacoes/entrada",
+    icon: Barcode,
+    permission: "stock:write"
+  },
+  {
+    label: "Transferencia",
+    href: "/movimentacoes/transferencia",
+    icon: ArrowRightLeft,
+    permission: "stock:write"
+  },
+  {
+    label: "Inventario",
+    href: "/inventario/novo",
+    icon: ClipboardCheck,
+    permission: "inventory:audit"
+  }
 ];
 
 export const dynamic = "force-dynamic";
@@ -36,8 +59,12 @@ function formatImpact(
 }
 
 export default async function DashboardPage() {
+  const user = await requirePageUser();
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const allowedQuickActions = quickActions.filter(
+    (item) => !item.permission || hasPermission(user.role, item.permission)
+  );
 
   const [
     activeProducts,
@@ -209,7 +236,7 @@ export default async function DashboardPage() {
       <section className="mt-6">
         <h3 className="mb-3 text-base font-semibold text-ink">Acoes rapidas</h3>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {quickActions.map((item) => {
+          {allowedQuickActions.map((item) => {
             const Icon = item.icon;
             return (
               <Link

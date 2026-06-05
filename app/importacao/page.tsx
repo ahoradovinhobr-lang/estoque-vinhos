@@ -3,6 +3,7 @@ import { ImportStatus } from "@prisma/client";
 import { Upload } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { ImportForm } from "./import-form";
@@ -17,6 +18,8 @@ const importStatusLabels: Record<ImportStatus, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
+  await requirePagePermission("imports:write");
+
   const batches = await prisma.importBatch.findMany({
     include: {
       user: true,

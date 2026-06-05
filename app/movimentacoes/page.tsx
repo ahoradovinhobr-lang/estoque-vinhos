@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 import { registerReversal } from "./actions";
@@ -53,6 +55,10 @@ const movementActions = [
 export const dynamic = "force-dynamic";
 
 export default async function MovementsPage() {
+  const user = await requirePagePermission("stock:read");
+  const canWriteStock = hasPermission(user.role, "stock:write");
+  const canReverseStock = hasPermission(user.role, "stock:reverse");
+
   const movements = await prisma.stockMovement.findMany({
     include: {
       product: true,
@@ -79,23 +85,25 @@ export default async function MovementsPage() {
         </h2>
       </header>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {movementActions.map((item) => {
-          const Icon = item.icon;
+      {canWriteStock ? (
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {movementActions.map((item) => {
+            const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md border border-stone-200 bg-white p-4 hover:border-cellar/40"
-            >
-              <Icon aria-hidden className="mb-3 h-5 w-5 text-cellar" />
-              <p className="font-semibold text-ink">{item.label}</p>
-              <p className="mt-1 text-sm text-stone-500">{item.detail}</p>
-            </Link>
-          );
-        })}
-      </section>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-md border border-stone-200 bg-white p-4 hover:border-cellar/40"
+              >
+                <Icon aria-hidden className="mb-3 h-5 w-5 text-cellar" />
+                <p className="font-semibold text-ink">{item.label}</p>
+                <p className="mt-1 text-sm text-stone-500">{item.detail}</p>
+              </Link>
+            );
+          })}
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded-md border border-stone-200 bg-white">
         <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3">
@@ -163,6 +171,7 @@ export default async function MovementsPage() {
                     })
                     .join(" | ");
                   const canReverse =
+                    canReverseStock &&
                     movement.status === MovementStatus.ACTIVE &&
                     movement.movementType !== MovementType.REVERSAL;
 

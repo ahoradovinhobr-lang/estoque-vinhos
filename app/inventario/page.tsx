@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -31,6 +32,8 @@ function formatDelta(value: number): string {
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
+  await requirePagePermission("inventory:audit");
+
   const [pendingAudits, recentAudits, pendingCount, adjustedCount] =
     await Promise.all([
       prisma.inventoryAudit.findMany({

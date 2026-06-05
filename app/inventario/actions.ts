@@ -8,7 +8,7 @@ import {
   createInventoryAudit,
   ignoreInventoryAudit
 } from "@/services/movements.service";
-import { getSystemUserId } from "@/services/system-user.service";
+import { requireActionPermission } from "@/lib/auth";
 
 function requiredText(formData: FormData, field: string, label: string): string {
   const value = String(formData.get(field) ?? "").trim();
@@ -48,7 +48,7 @@ function revalidateInventoryPaths() {
 }
 
 export async function registerInventoryAudit(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("inventory:audit");
 
   await createInventoryAudit({
     productId: requiredText(formData, "productId", "Produto"),
@@ -65,7 +65,7 @@ export async function registerInventoryAudit(formData: FormData) {
     applyAdjustment: formData.get("applyAdjustment") === "on",
     reason: optionalText(formData, "reason"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -74,7 +74,7 @@ export async function registerInventoryAudit(formData: FormData) {
 }
 
 export async function approveInventoryAudit(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("inventory:audit");
 
   await applyInventoryAudit({
     inventoryAuditId: requiredText(
@@ -84,7 +84,7 @@ export async function approveInventoryAudit(formData: FormData) {
     ),
     reason: requiredText(formData, "reason", "Justificativa"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -93,6 +93,8 @@ export async function approveInventoryAudit(formData: FormData) {
 }
 
 export async function ignorePendingInventoryAudit(formData: FormData) {
+  await requireActionPermission("inventory:audit");
+
   await ignoreInventoryAudit({
     inventoryAuditId: requiredText(
       formData,

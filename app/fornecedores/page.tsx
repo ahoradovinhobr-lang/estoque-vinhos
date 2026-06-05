@@ -2,6 +2,7 @@ import { RecordStatus } from "@prisma/client";
 import { Plus, RotateCcw, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -13,6 +14,8 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function SuppliersPage() {
+  await requirePagePermission("suppliers:write");
+
   const suppliers = await prisma.supplier.findMany({
     orderBy: [{ status: "asc" }, { name: "asc" }]
   });

@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { ArrowRightLeft, Filter } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -83,6 +84,8 @@ async function findMovements(where: Prisma.StockMovementWhereInput) {
 export default async function MovementsReportPage({
   searchParams
 }: MovementsReportPageProps) {
+  await requirePagePermission("reports:read");
+
   const params = await searchParams;
   const query = String(params?.q ?? "").trim();
   const selectedType = Object.values(MovementType).includes(

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { registerInventoryAudit } from "../actions";
@@ -21,6 +22,8 @@ type NewInventoryAuditPageProps = {
 export default async function NewInventoryAuditPage({
   searchParams
 }: NewInventoryAuditPageProps) {
+  await requirePagePermission("inventory:audit");
+
   const params = await searchParams;
   const selectedProductId = String(params?.productId ?? "");
   const selectedLocationId = String(params?.locationId ?? "");
