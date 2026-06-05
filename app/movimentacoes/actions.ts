@@ -8,7 +8,8 @@ import {
   createEntry,
   createExit,
   createLoss,
-  createTransfer
+  createTransfer,
+  reverseMovement
 } from "@/services/movements.service";
 import { getSystemUserId } from "@/services/system-user.service";
 
@@ -159,5 +160,21 @@ export async function registerLoss(formData: FormData) {
 
   revalidateMovementPaths();
   revalidatePath("/movimentacoes/perda");
+  redirect("/movimentacoes");
+}
+
+export async function registerReversal(formData: FormData) {
+  const userId = await getSystemUserId();
+
+  await reverseMovement({
+    movementId: requiredText(formData, "movementId", "Movimentacao"),
+    reason: requiredText(formData, "reason", "Justificativa"),
+    notes: optionalText(formData, "notes"),
+    userId,
+    idempotencyKey: optionalText(formData, "idempotencyKey")
+  });
+
+  revalidateMovementPaths();
+  revalidatePath("/inventario");
   redirect("/movimentacoes");
 }
