@@ -8,6 +8,7 @@ import {
   MapPinned,
   Search,
   Truck,
+  Upload,
   Users
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const navigation = [
   { href: "/movimentacoes", label: "Movimentacoes", icon: Truck },
   { href: "/inventario", label: "Inventario", icon: ClipboardCheck },
   { href: "/relatorios", label: "Relatorios", icon: Boxes },
+  { href: "/importacao", label: "Importacao", icon: Upload },
   { href: "/usuarios", label: "Usuarios", icon: Users }
 ];
 

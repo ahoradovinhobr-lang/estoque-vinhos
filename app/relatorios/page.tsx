@@ -6,7 +6,8 @@ import {
   BarChart3,
   ClipboardList,
   FileSearch,
-  PackageSearch
+  PackageSearch,
+  Upload
 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -36,6 +37,12 @@ const reportLinks = [
     label: "Movimentacoes",
     detail: "Historico filtravel",
     icon: ArrowRightLeft
+  },
+  {
+    href: "/importacao",
+    label: "Importacao inicial",
+    detail: "Simular e aplicar planilha",
+    icon: Upload
   }
 ];
 
@@ -123,8 +130,8 @@ export default async function ReportsPage() {
     },
     {
       label: "Importacao inicial",
-      status: "Proxima etapa",
-      detail: "Simulacao e carga por planilha ainda precisam ser ativadas."
+      status: "Disponivel",
+      detail: "Simulacao e aplicacao definitiva por CSV/TSV."
     },
     {
       label: "Backup e restauracao",
@@ -155,7 +162,7 @@ export default async function ReportsPage() {
         ))}
       </section>
 
-      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {reportLinks.map((item) => {
           const Icon = item.icon;
 
