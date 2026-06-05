@@ -2,6 +2,7 @@ import { LocationType, RecordStatus } from "@prisma/client";
 import { MapPin, Plus, RotateCcw, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -20,6 +21,8 @@ const locationTypeLabels: Record<LocationType, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function LocationsPage() {
+  await requirePagePermission("locations:write");
+
   const locations = await prisma.storageLocation.findMany({
     orderBy: [{ status: "asc" }, { code: "asc" }]
   });

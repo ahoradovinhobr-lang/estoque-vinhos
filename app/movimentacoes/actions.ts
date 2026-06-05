@@ -11,7 +11,7 @@ import {
   createTransfer,
   reverseMovement
 } from "@/services/movements.service";
-import { getSystemUserId } from "@/services/system-user.service";
+import { requireActionPermission } from "@/lib/auth";
 
 function requiredText(formData: FormData, field: string, label: string): string {
   const value = String(formData.get(field) ?? "").trim();
@@ -50,7 +50,7 @@ function revalidateMovementPaths() {
 }
 
 export async function registerEntry(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:write");
 
   await createEntry({
     productId: requiredText(formData, "productId", "Produto"),
@@ -62,7 +62,7 @@ export async function registerEntry(formData: FormData) {
     supplierId: optionalText(formData, "supplierId"),
     quantity: requiredInteger(formData, "quantity", "Quantidade"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -72,7 +72,7 @@ export async function registerEntry(formData: FormData) {
 }
 
 export async function registerExit(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:write");
 
   await createExit({
     productId: requiredText(formData, "productId", "Produto"),
@@ -84,7 +84,7 @@ export async function registerExit(formData: FormData) {
     quantity: requiredInteger(formData, "quantity", "Quantidade"),
     reason: requiredText(formData, "reason", "Motivo"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -94,7 +94,7 @@ export async function registerExit(formData: FormData) {
 }
 
 export async function registerTransfer(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:write");
 
   await createTransfer({
     productId: requiredText(formData, "productId", "Produto"),
@@ -110,7 +110,7 @@ export async function registerTransfer(formData: FormData) {
     ),
     quantity: requiredInteger(formData, "quantity", "Quantidade"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -120,7 +120,7 @@ export async function registerTransfer(formData: FormData) {
 }
 
 export async function registerAdjustment(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:write");
 
   await createAdjustment({
     productId: requiredText(formData, "productId", "Produto"),
@@ -132,7 +132,7 @@ export async function registerAdjustment(formData: FormData) {
     newQuantity: requiredInteger(formData, "newQuantity", "Saldo final"),
     reason: requiredText(formData, "reason", "Justificativa"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -142,7 +142,7 @@ export async function registerAdjustment(formData: FormData) {
 }
 
 export async function registerLoss(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:write");
 
   await createLoss({
     productId: requiredText(formData, "productId", "Produto"),
@@ -154,7 +154,7 @@ export async function registerLoss(formData: FormData) {
     quantity: requiredInteger(formData, "quantity", "Quantidade"),
     reason: requiredText(formData, "reason", "Justificativa"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 
@@ -164,13 +164,13 @@ export async function registerLoss(formData: FormData) {
 }
 
 export async function registerReversal(formData: FormData) {
-  const userId = await getSystemUserId();
+  const user = await requireActionPermission("stock:reverse");
 
   await reverseMovement({
     movementId: requiredText(formData, "movementId", "Movimentacao"),
     reason: requiredText(formData, "reason", "Justificativa"),
     notes: optionalText(formData, "notes"),
-    userId,
+    userId: user.id,
     idempotencyKey: optionalText(formData, "idempotencyKey")
   });
 

@@ -3,6 +3,7 @@ import { AuditStatus } from "@prisma/client";
 import { AlertTriangle, Filter } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -22,6 +23,8 @@ export const dynamic = "force-dynamic";
 export default async function DivergencesReportPage({
   searchParams
 }: DivergencesReportPageProps) {
+  await requirePagePermission("reports:read");
+
   const params = await searchParams;
   const selectedStatus = Object.values(AuditStatus).includes(
     String(params?.status ?? "") as AuditStatus

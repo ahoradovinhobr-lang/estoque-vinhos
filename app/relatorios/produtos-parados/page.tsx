@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Filter, PackageSearch } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -23,6 +24,8 @@ export const dynamic = "force-dynamic";
 export default async function StaleProductsReportPage({
   searchParams
 }: StaleProductsReportPageProps) {
+  await requirePagePermission("reports:read");
+
   const params = await searchParams;
   const requestedDays = Number(params?.days ?? 90);
   const days = periodOptions.includes(requestedDays) ? requestedDays : 90;

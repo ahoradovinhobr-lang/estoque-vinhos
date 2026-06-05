@@ -3,9 +3,12 @@
 import { RecordStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function createSupplier(formData: FormData) {
+  await requireActionPermission("suppliers:write");
+
   const name = String(formData.get("name") ?? "").trim();
   const document = String(formData.get("document") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -30,6 +33,8 @@ export async function createSupplier(formData: FormData) {
 }
 
 export async function inactivateSupplier(formData: FormData) {
+  await requireActionPermission("suppliers:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {
@@ -45,6 +50,8 @@ export async function inactivateSupplier(formData: FormData) {
 }
 
 export async function reactivateSupplier(formData: FormData) {
+  await requireActionPermission("suppliers:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {

@@ -3,10 +3,13 @@
 import { LocationType, RecordStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureNoLocationBalance } from "@/services/inventory.service";
 
 export async function createLocation(formData: FormData) {
+  await requireActionPermission("locations:write");
+
   const name = String(formData.get("name") ?? "").trim();
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
   const type = String(formData.get("type") ?? "") as LocationType;
@@ -37,6 +40,8 @@ export async function createLocation(formData: FormData) {
 }
 
 export async function inactivateLocation(formData: FormData) {
+  await requireActionPermission("locations:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {
@@ -56,6 +61,8 @@ export async function inactivateLocation(formData: FormData) {
 }
 
 export async function reactivateLocation(formData: FormData) {
+  await requireActionPermission("locations:write");
+
   const id = String(formData.get("id") ?? "");
 
   if (!id) {

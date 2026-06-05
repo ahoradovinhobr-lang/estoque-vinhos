@@ -2,6 +2,7 @@ import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import { Barcode, Plus, RotateCcw, Wine, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -24,6 +25,8 @@ const wineColorLabels: Record<WineColor, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function ProductsPage() {
+  await requirePagePermission("products:write");
+
   const [products, suppliers] = await Promise.all([
     prisma.product.findMany({
       include: {

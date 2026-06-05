@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const reportLinks = [
@@ -49,6 +50,8 @@ const reportLinks = [
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
+  await requirePagePermission("reports:read");
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
