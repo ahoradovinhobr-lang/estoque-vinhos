@@ -10,7 +10,17 @@ import { productOptionLabel } from "../options";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransferPage() {
+type MovementFormPageProps = {
+  searchParams?: Promise<{
+    productId?: string;
+  }>;
+};
+
+export default async function TransferPage({
+  searchParams
+}: MovementFormPageProps) {
+  const params = await searchParams;
+  const selectedProductId = String(params?.productId ?? "");
   const [products, locations] = await Promise.all([
     prisma.product.findMany({
       where: { status: "ACTIVE" },
@@ -45,7 +55,7 @@ export default async function TransferPage() {
             <select
               name="productId"
               required
-              defaultValue=""
+              defaultValue={selectedProductId}
               className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             >
               <option value="" disabled>
