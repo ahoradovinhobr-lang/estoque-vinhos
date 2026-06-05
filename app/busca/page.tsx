@@ -42,11 +42,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           balances: {
             include: {
               storageLocation: true
-            },
-            orderBy: {
-              storageLocation: {
-                code: "asc"
-              }
             }
           }
         },
@@ -106,9 +101,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       ) : (
         <section className="mt-6 space-y-3">
           {products.map((product) => {
-            const balancesWithStock = product.balances.filter(
-              (balance) => balance.quantity > 0
-            );
+            const balancesWithStock = product.balances
+              .filter((balance) => balance.quantity > 0)
+              .sort((first, second) =>
+                first.storageLocation.code.localeCompare(
+                  second.storageLocation.code
+                )
+              );
             const totalStock = balancesWithStock.reduce(
               (sum, balance) => sum + balance.quantity,
               0
