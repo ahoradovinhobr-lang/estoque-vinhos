@@ -1,10 +1,12 @@
+import { randomUUID } from "crypto";
 import Link from "next/link";
-import { MovementType } from "@prisma/client";
+import { MovementStatus, MovementType } from "@prisma/client";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
   ArrowUpFromLine,
   History,
+  RotateCcw,
   SlidersHorizontal,
   TriangleAlert
 } from "lucide-react";
@@ -12,6 +14,7 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { prisma } from "@/lib/prisma";
 
+import { registerReversal } from "./actions";
 import { movementTypeLabels } from "./options";
 
 const movementActions = [
@@ -56,7 +59,11 @@ export default async function MovementsPage() {
       sourceLocation: true,
       destinationLocation: true,
       affectedLocation: true,
-      lines: true,
+      lines: {
+        include: {
+          storageLocation: true
+        }
+      },
       user: true
     },
     orderBy: { createdAt: "desc" },
@@ -98,15 +105,18 @@ export default async function MovementsPage() {
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] border-collapse text-sm">
+          <table className="w-full min-w-[1280px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Tipo</th>
+                <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Produto</th>
                 <th className="px-4 py-3 text-right font-medium">Impacto</th>
                 <th className="px-4 py-3 font-medium">Local</th>
+                <th className="px-4 py-3 font-medium">Saldo</th>
                 <th className="px-4 py-3 font-medium">Usuario</th>
                 <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium">Estorno</th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +124,7 @@ export default async function MovementsPage() {
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-stone-500"
-                    colSpan={6}
+                    colSpan={9}
                   >
                     Nenhuma movimentacao registrada.
                   </td>
@@ -137,11 +147,34 @@ export default async function MovementsPage() {
                     delta === undefined
                       ? String(movement.quantity)
                       : `${delta > 0 ? "+" : ""}${delta}`;
+                  const lineSummary = movement.lines
+                    .slice()
+                    .sort((first, second) =>
+                      first.storageLocation.code.localeCompare(
+                        second.storageLocation.code
+                      )
+                    )
+                    .map((line) => {
+                      const lineDelta = `${line.quantityDelta > 0 ? "+" : ""}${
+                        line.quantityDelta
+                      }`;
+
+                      return `${line.storageLocation.code}: ${line.quantityBefore} ${lineDelta} = ${line.quantityAfter}`;
+                    })
+                    .join(" | ");
+                  const canReverse =
+                    movement.status === MovementStatus.ACTIVE &&
+                    movement.movementType !== MovementType.REVERSAL;
 
                   return (
                     <tr key={movement.id} className="border-b border-stone-100">
                       <td className="px-4 py-3">
                         {movementTypeLabels[movement.movementType]}
+                      </td>
+                      <td className="px-4 py-3 text-stone-600">
+                        {movement.status === MovementStatus.REVERSED
+                          ? "Estornada"
+                          : "Ativa"}
                       </td>
                       <td className="px-4 py-3 font-medium text-ink">
                         {movement.product.name}
@@ -151,12 +184,46 @@ export default async function MovementsPage() {
                       </td>
                       <td className="px-4 py-3 text-stone-600">{location}</td>
                       <td className="px-4 py-3 text-stone-600">
+                        {lineSummary || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-stone-600">
                         {movement.user.name}
                       </td>
                       <td className="px-4 py-3 text-stone-600">
                         {movement.createdAt.toLocaleString("pt-BR", {
                           timeZone: "America/Sao_Paulo"
                         })}
+                      </td>
+                      <td className="px-4 py-3">
+                        {canReverse ? (
+                          <form
+                            action={registerReversal}
+                            className="flex min-w-[280px] gap-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="movementId"
+                              value={movement.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="idempotencyKey"
+                              value={`reversal:${movement.id}:${randomUUID()}`}
+                            />
+                            <input
+                              name="reason"
+                              required
+                              placeholder="justificativa"
+                              className="h-9 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+                            />
+                            <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                              <RotateCcw aria-hidden className="h-4 w-4" />
+                              Estornar
+                            </button>
+                          </form>
+                        ) : (
+                          <span className="text-stone-400">-</span>
+                        )}
                       </td>
                     </tr>
                   );

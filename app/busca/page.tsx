@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Barcode, Boxes, Search } from "lucide-react";
+import { Barcode, Boxes, ClipboardCheck, Search } from "lucide-react";
 import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -213,6 +213,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       className="inline-flex h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
                     >
                       Ajustar
+                    </Link>
+                    <Link
+                      href={`/inventario/novo?productId=${product.id}`}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                    >
+                      <ClipboardCheck aria-hidden className="h-4 w-4" />
+                      Inventario
                     </Link>
                   </div>
                 </div>

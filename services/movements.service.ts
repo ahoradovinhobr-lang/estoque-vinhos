@@ -52,6 +52,26 @@ type LossInput = MovementBaseInput & {
   quantity: number;
 };
 
+type InventoryAuditInput = MovementBaseInput & {
+  storageLocationId: string;
+  countedQuantity: number;
+  applyAdjustment?: boolean;
+};
+
+type ApplyInventoryAuditInput = {
+  inventoryAuditId: string;
+  userId: string;
+  reason: string;
+  notes?: string | null;
+  occurredAt?: Date | string | null;
+  idempotencyKey?: string | null;
+};
+
+type IgnoreInventoryAuditInput = {
+  inventoryAuditId: string;
+  reason: string;
+};
+
 type ReversalInput = {
   movementId: string;
   userId: string;
@@ -67,6 +87,18 @@ const serializable = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable
 };
 
+function assertNonNegativeInteger(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} deve ser um numero inteiro maior ou igual a zero.`);
+  }
+}
+
+function assertRequiredReason(reason: string | null | undefined, label: string) {
+  if (!reason?.trim()) {
+    throw new Error(`${label} exige justificativa.`);
+  }
+}
+
 async function findExistingByIdempotencyKey(
   tx: Tx,
   idempotencyKey?: string | null
@@ -78,6 +110,25 @@ async function findExistingByIdempotencyKey(
   return tx.stockMovement.findUnique({
     where: { idempotencyKey },
     include: { lines: true }
+  });
+}
+
+async function findExistingInventoryAuditByIdempotencyKey(
+  tx: Tx,
+  idempotencyKey?: string | null
+) {
+  if (!idempotencyKey) {
+    return null;
+  }
+
+  return tx.inventoryAudit.findUnique({
+    where: { idempotencyKey },
+    include: {
+      product: true,
+      storageLocation: true,
+      user: true,
+      adjustmentMovement: { include: { lines: true } }
+    }
   });
 }
 
@@ -376,9 +427,7 @@ export async function createAdjustment(input: AdjustmentInput) {
 export async function createLoss(input: LossInput) {
   assertPositiveQuantity(input.quantity);
 
-  if (!input.reason?.trim()) {
-    throw new Error("Perda ou avaria exige justificativa.");
-  }
+  assertRequiredReason(input.reason, "Perda ou avaria");
 
   return prisma.$transaction(async (tx) => {
     const existing = await findExistingByIdempotencyKey(tx, input.idempotencyKey);
@@ -433,10 +482,221 @@ export async function createLoss(input: LossInput) {
   }, serializable);
 }
 
+export async function createInventoryAudit(input: InventoryAuditInput) {
+  assertNonNegativeInteger(input.countedQuantity, "Quantidade contada");
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await findExistingInventoryAuditByIdempotencyKey(
+      tx,
+      input.idempotencyKey
+    );
+    if (existing) return existing;
+
+    await assertActiveProduct(tx, input.productId);
+    await assertActiveLocation(tx, input.storageLocationId);
+
+    const expectedQuantity = await getBalanceQuantity(
+      tx,
+      input.productId,
+      input.storageLocationId
+    );
+    const difference = input.countedQuantity - expectedQuantity;
+    const hasDivergence = difference !== 0;
+
+    if (hasDivergence && input.applyAdjustment) {
+      assertRequiredReason(input.reason, "Ajuste de inventario");
+    }
+
+    const audit = await tx.inventoryAudit.create({
+      data: {
+        productId: input.productId,
+        storageLocationId: input.storageLocationId,
+        expectedQuantity,
+        countedQuantity: input.countedQuantity,
+        difference,
+        status: hasDivergence ? AuditStatus.PENDING : AuditStatus.CONFIRMED,
+        idempotencyKey: input.idempotencyKey ?? null,
+        notes: input.notes ?? null,
+        userId: input.userId
+      }
+    });
+
+    if (!hasDivergence || !input.applyAdjustment) {
+      return tx.inventoryAudit.findUniqueOrThrow({
+        where: { id: audit.id },
+        include: {
+          product: true,
+          storageLocation: true,
+          user: true,
+          adjustmentMovement: { include: { lines: true } }
+        }
+      });
+    }
+
+    const movement = await tx.stockMovement.create({
+      data: {
+        productId: input.productId,
+        movementType: MovementType.INVENTORY,
+        quantity: Math.abs(difference),
+        affectedLocationId: input.storageLocationId,
+        inventoryAuditId: audit.id,
+        reason: input.reason,
+        notes: input.notes ?? null,
+        userId: input.userId,
+        idempotencyKey: input.idempotencyKey ?? null,
+        occurredAt: parseOccurredAt(input.occurredAt)
+      }
+    });
+
+    await setBalanceQuantity(
+      tx,
+      input.productId,
+      input.storageLocationId,
+      input.countedQuantity
+    );
+
+    await createLine(tx, {
+      stockMovementId: movement.id,
+      productId: input.productId,
+      storageLocationId: input.storageLocationId,
+      quantityBefore: expectedQuantity,
+      quantityDelta: difference
+    });
+
+    await tx.inventoryAudit.update({
+      where: { id: audit.id },
+      data: { status: AuditStatus.ADJUSTED }
+    });
+
+    return tx.inventoryAudit.findUniqueOrThrow({
+      where: { id: audit.id },
+      include: {
+        product: true,
+        storageLocation: true,
+        user: true,
+        adjustmentMovement: { include: { lines: true } }
+      }
+    });
+  }, serializable);
+}
+
+export async function applyInventoryAudit(input: ApplyInventoryAuditInput) {
+  assertRequiredReason(input.reason, "Ajuste de inventario");
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await findExistingByIdempotencyKey(tx, input.idempotencyKey);
+    if (existing) return existing;
+
+    const audit = await tx.inventoryAudit.findUnique({
+      where: { id: input.inventoryAuditId }
+    });
+
+    if (!audit) {
+      throw new Error("Conferencia de inventario nao encontrada.");
+    }
+
+    if (audit.status !== AuditStatus.PENDING) {
+      throw new Error("Somente divergencias pendentes podem ser ajustadas.");
+    }
+
+    if (audit.difference === 0) {
+      await tx.inventoryAudit.update({
+        where: { id: audit.id },
+        data: { status: AuditStatus.CONFIRMED }
+      });
+
+      return null;
+    }
+
+    await assertActiveProduct(tx, audit.productId);
+    await assertActiveLocation(tx, audit.storageLocationId);
+
+    const currentQuantity = await getBalanceQuantity(
+      tx,
+      audit.productId,
+      audit.storageLocationId
+    );
+
+    if (currentQuantity !== audit.expectedQuantity) {
+      throw new Error(
+        "Saldo atual mudou desde a conferencia. Faca uma nova conferencia antes de ajustar."
+      );
+    }
+
+    const movement = await tx.stockMovement.create({
+      data: {
+        productId: audit.productId,
+        movementType: MovementType.INVENTORY,
+        quantity: Math.abs(audit.difference),
+        affectedLocationId: audit.storageLocationId,
+        inventoryAuditId: audit.id,
+        reason: input.reason,
+        notes: input.notes ?? audit.notes,
+        userId: input.userId,
+        idempotencyKey: input.idempotencyKey ?? null,
+        occurredAt: parseOccurredAt(input.occurredAt)
+      }
+    });
+
+    await setBalanceQuantity(
+      tx,
+      audit.productId,
+      audit.storageLocationId,
+      audit.countedQuantity
+    );
+
+    await createLine(tx, {
+      stockMovementId: movement.id,
+      productId: audit.productId,
+      storageLocationId: audit.storageLocationId,
+      quantityBefore: currentQuantity,
+      quantityDelta: audit.difference
+    });
+
+    await tx.inventoryAudit.update({
+      where: { id: audit.id },
+      data: { status: AuditStatus.ADJUSTED }
+    });
+
+    return tx.stockMovement.findUniqueOrThrow({
+      where: { id: movement.id },
+      include: { lines: true }
+    });
+  }, serializable);
+}
+
+export async function ignoreInventoryAudit(input: IgnoreInventoryAuditInput) {
+  assertRequiredReason(input.reason, "Ignorar divergencia");
+
+  return prisma.$transaction(async (tx) => {
+    const audit = await tx.inventoryAudit.findUnique({
+      where: { id: input.inventoryAuditId }
+    });
+
+    if (!audit) {
+      throw new Error("Conferencia de inventario nao encontrada.");
+    }
+
+    if (audit.status !== AuditStatus.PENDING) {
+      throw new Error("Somente divergencias pendentes podem ser ignoradas.");
+    }
+
+    const notes = [audit.notes, `Ignorado: ${input.reason}`]
+      .filter((item): item is string => Boolean(item))
+      .join("\n");
+
+    return tx.inventoryAudit.update({
+      where: { id: audit.id },
+      data: {
+        status: AuditStatus.IGNORED,
+        notes
+      }
+    });
+  }, serializable);
+}
+
 export async function reverseMovement(input: ReversalInput) {
-  if (!input.reason.trim()) {
-    throw new Error("Estorno exige justificativa.");
-  }
+  assertRequiredReason(input.reason, "Estorno");
 
   return prisma.$transaction(async (tx) => {
     const existing = await findExistingByIdempotencyKey(tx, input.idempotencyKey);

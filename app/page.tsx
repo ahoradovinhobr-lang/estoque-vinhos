@@ -6,15 +6,13 @@ import {
   ClipboardCheck,
   Search
 } from "lucide-react";
+import Link from "next/link";
+import { AuditStatus, MovementType } from "@prisma/client";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { prisma } from "@/lib/prisma";
 
-const indicators = [
-  { label: "Produtos ativos", value: "0", detail: "Aguardando cadastro" },
-  { label: "Unidades em estoque", value: "0", detail: "Soma por local" },
-  { label: "Divergencias pendentes", value: "0", detail: "Inventario" },
-  { label: "Produtos parados", value: "0", detail: "90 dias" }
-];
+import { movementTypeLabels } from "./movimentacoes/options";
 
 const quickActions = [
   { label: "Busca rapida", href: "/busca", icon: Search },
@@ -23,7 +21,88 @@ const quickActions = [
   { label: "Inventario", href: "/inventario/novo", icon: ClipboardCheck }
 ];
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+function formatImpact(
+  movementType: MovementType,
+  quantity: number,
+  delta: number | undefined
+): string {
+  if (movementType === MovementType.TRANSFER || delta === undefined) {
+    return String(quantity);
+  }
+
+  return `${delta > 0 ? "+" : ""}${delta}`;
+}
+
+export default async function DashboardPage() {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const [
+    activeProducts,
+    stockSum,
+    pendingDivergences,
+    staleProducts,
+    recentMovements
+  ] = await Promise.all([
+    prisma.product.count({ where: { status: "ACTIVE" } }),
+    prisma.inventoryBalance.aggregate({ _sum: { quantity: true } }),
+    prisma.inventoryAudit.count({ where: { status: AuditStatus.PENDING } }),
+    prisma.product.count({
+      where: {
+        status: "ACTIVE",
+        createdAt: { lt: ninetyDaysAgo },
+        movements: {
+          none: {
+            createdAt: { gte: ninetyDaysAgo }
+          }
+        }
+      }
+    }),
+    prisma.stockMovement.findMany({
+      include: {
+        product: true,
+        sourceLocation: true,
+        destinationLocation: true,
+        affectedLocation: true,
+        lines: true
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5
+    })
+  ]);
+
+  const indicators = [
+    {
+      label: "Produtos ativos",
+      value: String(activeProducts),
+      detail: "Cadastro operacional"
+    },
+    {
+      label: "Unidades em estoque",
+      value: String(stockSum._sum.quantity ?? 0),
+      detail: "Soma por local"
+    },
+    {
+      label: "Divergencias pendentes",
+      value: String(pendingDivergences),
+      detail: "Inventario"
+    },
+    {
+      label: "Produtos parados",
+      value: String(staleProducts),
+      detail: "90 dias"
+    }
+  ];
+
+  const alerts = [
+    pendingDivergences > 0
+      ? `${pendingDivergences} divergencia(s) pendente(s) de inventario`
+      : null,
+    staleProducts > 0 ? `${staleProducts} produto(s) parado(s) ha 90 dias` : null
+  ].filter((item): item is string => Boolean(item));
+
   return (
     <AppShell>
       <header className="mb-6 flex flex-col gap-4 border-b border-stone-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
@@ -33,13 +112,13 @@ export default function DashboardPage() {
             Dashboard de estoque
           </h2>
         </div>
-        <a
+        <Link
           href="/busca"
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
         >
           <Search aria-hidden className="h-4 w-4" />
           Buscar vinho
-        </a>
+        </Link>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -61,9 +140,49 @@ export default function DashboardPage() {
             <Boxes aria-hidden className="h-5 w-5 text-olive" />
             <h3 className="text-base font-semibold">Ultimas movimentacoes</h3>
           </div>
-          <div className="px-4 py-10 text-center text-sm text-stone-500">
-            Nenhuma movimentacao registrada ainda.
-          </div>
+          {recentMovements.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-stone-500">
+              Nenhuma movimentacao registrada ainda.
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {recentMovements.map((movement) => {
+                const location =
+                  movement.movementType === MovementType.TRANSFER
+                    ? `${movement.sourceLocation?.code ?? "-"} -> ${
+                        movement.destinationLocation?.code ?? "-"
+                      }`
+                    : movement.destinationLocation?.code ||
+                      movement.sourceLocation?.code ||
+                      movement.affectedLocation?.code ||
+                      "-";
+                const firstLine = movement.lines[0];
+
+                return (
+                  <div
+                    key={movement.id}
+                    className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto]"
+                  >
+                    <div>
+                      <p className="font-medium text-ink">
+                        {movement.product.name}
+                      </p>
+                      <p className="text-stone-500">
+                        {movementTypeLabels[movement.movementType]} - {location}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-cellar">
+                      {formatImpact(
+                        movement.movementType,
+                        movement.quantity,
+                        firstLine?.quantityDelta
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="rounded-md border border-stone-200 bg-white">
@@ -71,9 +190,19 @@ export default function DashboardPage() {
             <AlertTriangle aria-hidden className="h-5 w-5 text-brass" />
             <h3 className="text-base font-semibold">Alertas</h3>
           </div>
-          <div className="px-4 py-10 text-center text-sm text-stone-500">
-            Sem alertas enquanto o estoque inicial nao for importado.
-          </div>
+          {alerts.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-stone-500">
+              Sem alertas operacionais.
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {alerts.map((alert) => (
+                <p key={alert} className="px-4 py-3 text-sm text-stone-700">
+                  {alert}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -83,14 +212,14 @@ export default function DashboardPage() {
           {quickActions.map((item) => {
             const Icon = item.icon;
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className="flex h-20 items-center gap-3 rounded-md border border-stone-200 bg-white px-4 text-sm font-semibold text-ink hover:border-cellar"
               >
                 <Icon aria-hidden className="h-5 w-5 text-cellar" />
                 {item.label}
-              </a>
+              </Link>
             );
           })}
         </div>

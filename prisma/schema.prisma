@@ -66,9 +66,10 @@ enum MovementStatus {
 }
 
 enum AuditStatus {
-  PENDING  @map("pending")
-  ADJUSTED @map("adjusted")
-  IGNORED  @map("ignored")
+  PENDING   @map("pending")
+  CONFIRMED @map("confirmed")
+  ADJUSTED  @map("adjusted")
+  IGNORED   @map("ignored")
 
   @@map("audit_status")
 }
@@ -275,6 +276,7 @@ model InventoryAudit {
   countedQuantity   Int         @map("counted_quantity")
   difference        Int
   status            AuditStatus @default(PENDING)
+  idempotencyKey    String?     @unique @map("idempotency_key")
   notes             String?
   userId            String      @map("user_id") @db.Uuid
   createdAt         DateTime    @default(now()) @map("created_at")
