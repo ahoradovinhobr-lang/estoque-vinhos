@@ -10,12 +10,16 @@ import {
   type Permission
 } from "@/lib/permissions";
 
-const SESSION_COOKIE = "estoque_session";
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+const SESSION_COOKIE =
+  process.env.NODE_ENV === "production"
+    ? "__Host-estoque_session"
+    : "estoque_session";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 4;
 
 type SessionPayload = {
   userId: string;
   expiresAt: number;
+  sessionVersion: number;
 };
 
 export type AuthenticatedUser = {
@@ -23,6 +27,11 @@ export type AuthenticatedUser = {
   name: string;
   email: string;
   role: UserRole;
+  mustChangePassword: boolean;
+};
+
+type AuthRequirementOptions = {
+  allowPasswordChangeRequired?: boolean;
 };
 
 function authSecret(): string {
@@ -72,7 +81,11 @@ function verifyToken(token: string): SessionPayload | null {
       Buffer.from(payload, "base64url").toString("utf8")
     ) as SessionPayload;
 
-    if (!decoded.userId || decoded.expiresAt < Date.now()) {
+    if (
+      !decoded.userId ||
+      decoded.expiresAt < Date.now() ||
+      typeof decoded.sessionVersion !== "number"
+    ) {
       return null;
     }
 
@@ -87,10 +100,23 @@ export async function createSession(userId: string): Promise<void> {
     throw new Error("AUTH_SECRET precisa ter pelo menos 32 caracteres.");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      status: true,
+      sessionVersion: true
+    }
+  });
+
+  if (!user || user.status !== RecordStatus.ACTIVE) {
+    throw new Error("Usuario inativo ou inexistente.");
+  }
+
   const payload = base64Url(
     JSON.stringify({
       userId,
-      expiresAt: Date.now() + SESSION_MAX_AGE_SECONDS * 1000
+      expiresAt: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
+      sessionVersion: user.sessionVersion
     } satisfies SessionPayload)
   );
   const token = `${payload}.${signPayload(payload)}`;
@@ -98,7 +124,7 @@ export async function createSession(userId: string): Promise<void> {
 
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/"
@@ -109,6 +135,8 @@ export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
 
   cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete("estoque_session");
+  cookieStore.delete("__Host-estoque_session");
 }
 
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
@@ -127,11 +155,17 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
       name: true,
       email: true,
       role: true,
-      status: true
+      status: true,
+      mustChangePassword: true,
+      sessionVersion: true
     }
   });
 
-  if (!user || user.status !== RecordStatus.ACTIVE) {
+  if (
+    !user ||
+    user.status !== RecordStatus.ACTIVE ||
+    user.sessionVersion !== session.sessionVersion
+  ) {
     return null;
   }
 
@@ -139,24 +173,32 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    mustChangePassword: user.mustChangePassword
   };
 }
 
-export async function requirePageUser(): Promise<AuthenticatedUser> {
+export async function requirePageUser(
+  options: AuthRequirementOptions = {}
+): Promise<AuthenticatedUser> {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
+  if (user.mustChangePassword && !options.allowPasswordChangeRequired) {
+    redirect("/minha-conta/senha");
+  }
+
   return user;
 }
 
 export async function requirePagePermission(
-  permission: Permission
+  permission: Permission,
+  options: AuthRequirementOptions = {}
 ): Promise<AuthenticatedUser> {
-  const user = await requirePageUser();
+  const user = await requirePageUser(options);
 
   if (!hasPermission(user.role, permission)) {
     redirect("/acesso-negado");
@@ -165,20 +207,27 @@ export async function requirePagePermission(
   return user;
 }
 
-export async function requireActionUser(): Promise<AuthenticatedUser> {
+export async function requireActionUser(
+  options: AuthRequirementOptions = {}
+): Promise<AuthenticatedUser> {
   const user = await getCurrentUser();
 
   if (!user) {
     throw new Error("Sessao expirada. Faca login novamente.");
   }
 
+  if (user.mustChangePassword && !options.allowPasswordChangeRequired) {
+    throw new Error("Altere sua senha antes de continuar.");
+  }
+
   return user;
 }
 
 export async function requireActionPermission(
-  permission: Permission
+  permission: Permission,
+  options: AuthRequirementOptions = {}
 ): Promise<AuthenticatedUser> {
-  const user = await requireActionUser();
+  const user = await requireActionUser(options);
   assertPermission(user.role, permission);
   return user;
 }

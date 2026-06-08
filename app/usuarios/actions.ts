@@ -5,7 +5,7 @@ import { RecordStatus, UserRole } from "@prisma/client";
 
 import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createUser } from "@/services/users.service";
+import { createUser, resetUserPassword } from "@/services/users.service";
 
 function requiredText(formData: FormData, field: string, label: string): string {
   const value = String(formData.get(field) ?? "").trim();
@@ -79,6 +79,23 @@ export async function reactivateUserAction(formData: FormData) {
   await prisma.user.update({
     where: { id },
     data: { status: RecordStatus.ACTIVE }
+  });
+
+  revalidatePath("/usuarios");
+}
+
+export async function resetUserPasswordAction(formData: FormData) {
+  const currentUser = await requireActionPermission("users:write");
+  const id = requiredText(formData, "id", "Usuario");
+  const password = requiredText(formData, "password", "Senha temporaria");
+
+  if (id === currentUser.id) {
+    throw new Error("Use Minha conta para alterar a propria senha.");
+  }
+
+  await resetUserPassword({
+    targetUserId: id,
+    password
   });
 
   revalidatePath("/usuarios");

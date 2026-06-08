@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 import { ensureBootstrapAdmin } from "@/services/users.service";
 
 import { LoginForm } from "./login-form";
@@ -35,7 +36,8 @@ export default async function LoginPage() {
         ) : !bootstrap.configured ? (
           <div className="mt-5 rounded-md border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
             Configure `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` para
-            criar o primeiro administrador.
+            criar o primeiro administrador. A senha deve ter pelo menos{" "}
+            {PASSWORD_MIN_LENGTH} caracteres.
           </div>
         ) : (
           <div className="mt-5">

@@ -6,6 +6,7 @@ import {
   Boxes,
   ClipboardCheck,
   Handshake,
+  KeyRound,
   MapPinned,
   Search,
   Truck,
@@ -84,8 +85,14 @@ const roleLabels: Record<UserRole, string> = {
   CONSULTA: "Consulta"
 };
 
-export async function AppShell({ children }: { children: React.ReactNode }) {
-  const user = await requirePageUser();
+export async function AppShell({
+  allowPasswordChangeRequired = false,
+  children
+}: {
+  allowPasswordChangeRequired?: boolean;
+  children: React.ReactNode;
+}) {
+  const user = await requirePageUser({ allowPasswordChangeRequired });
   const allowedNavigation = navigation.filter(
     (item) => !item.permission || hasPermission(user.role, item.permission)
   );
@@ -123,6 +130,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <p className="mt-1 text-xs text-stone-500">
             {roleLabels[user.role]}
           </p>
+          <Link
+            href="/minha-conta/senha"
+            className="mt-3 flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+          >
+            <KeyRound aria-hidden className="h-4 w-4" />
+            Minha conta
+          </Link>
           <form action={logoutAction} className="mt-3">
             <button className="h-9 w-full rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-100">
               Sair

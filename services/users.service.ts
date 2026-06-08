@@ -1,9 +1,25 @@
 import bcrypt from "bcryptjs";
 import { RecordStatus, UserRole } from "@prisma/client";
 
+import { validatePasswordPolicy } from "@/lib/password-policy";
 import { prisma } from "@/lib/prisma";
 
 const SYSTEM_USER_EMAIL = "operador@estoque.local";
+export const LOGIN_LOCK_THRESHOLD = 5;
+export const LOGIN_LOCK_MINUTES = 15;
+
+const DUMMY_PASSWORD_HASH =
+  "$2a$12$C6UzMDM.H6dfI/f/IKcEeO3Z1iiZaY5E1Qj/Mv0Wg5jAbIYr4C0Y2";
+
+async function hashPassword(password: string): Promise<string> {
+  const policyError = validatePasswordPolicy(password);
+
+  if (policyError) {
+    throw new Error(policyError);
+  }
+
+  return bcrypt.hash(password, 12);
+}
 
 export async function ensureBootstrapAdmin(): Promise<{
   created: boolean;
@@ -27,15 +43,17 @@ export async function ensureBootstrapAdmin(): Promise<{
   const name =
     String(process.env.INITIAL_ADMIN_NAME ?? "").trim() || "Administrador";
 
-  if (
-    !email ||
-    email.toLowerCase() === SYSTEM_USER_EMAIL ||
-    password.length < 8
-  ) {
+  if (!email || email.toLowerCase() === SYSTEM_USER_EMAIL) {
     return { created: false, configured: false };
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  let passwordHash: string;
+
+  try {
+    passwordHash = await hashPassword(password);
+  } catch {
+    return { created: false, configured: false };
+  }
 
   await prisma.user.upsert({
     where: { email: email.toLowerCase() },
@@ -43,14 +61,19 @@ export async function ensureBootstrapAdmin(): Promise<{
       name,
       passwordHash,
       role: UserRole.ADMIN,
-      status: RecordStatus.ACTIVE
+      status: RecordStatus.ACTIVE,
+      mustChangePassword: true,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      sessionVersion: { increment: 1 }
     },
     create: {
       name,
       email: email.toLowerCase(),
       passwordHash,
       role: UserRole.ADMIN,
-      status: RecordStatus.ACTIVE
+      status: RecordStatus.ACTIVE,
+      mustChangePassword: true
     }
   });
 
@@ -77,10 +100,6 @@ export async function createUser(input: {
     throw new Error("Email reservado para uso interno do sistema.");
   }
 
-  if (input.password.length < 8) {
-    throw new Error("Senha deve ter pelo menos 8 caracteres.");
-  }
-
   if (!Object.values(UserRole).includes(input.role)) {
     throw new Error("Perfil de usuario invalido.");
   }
@@ -98,9 +117,148 @@ export async function createUser(input: {
     data: {
       name: input.name.trim(),
       email,
-      passwordHash: await bcrypt.hash(input.password, 12),
+      passwordHash: await hashPassword(input.password),
       role: input.role,
-      status: RecordStatus.ACTIVE
+      status: RecordStatus.ACTIVE,
+      mustChangePassword: true
+    }
+  });
+}
+
+export async function authenticateUser(input: {
+  email: string;
+  password: string;
+}) {
+  const email = input.email.trim().toLowerCase();
+  const now = new Date();
+  const lockUntil = new Date(
+    now.getTime() + LOGIN_LOCK_MINUTES * 60 * 1000
+  );
+
+  const user = email
+    ? await prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          passwordHash: true,
+          failedLoginAttempts: true,
+          lockedUntil: true,
+          mustChangePassword: true
+        }
+      })
+    : null;
+
+  const isLocked =
+    Boolean(user?.lockedUntil) &&
+    (user?.lockedUntil?.getTime() ?? 0) > now.getTime();
+  const hashToCompare = user?.passwordHash.startsWith("$2")
+    ? user.passwordHash
+    : DUMMY_PASSWORD_HASH;
+  const passwordMatches = await bcrypt.compare(input.password, hashToCompare);
+
+  if (
+    !user ||
+    user.status !== RecordStatus.ACTIVE ||
+    isLocked ||
+    !passwordMatches
+  ) {
+    if (user && user.status === RecordStatus.ACTIVE && !isLocked) {
+      const failedLoginAttempts = user.failedLoginAttempts + 1;
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts,
+          lockedUntil:
+            failedLoginAttempts >= LOGIN_LOCK_THRESHOLD ? lockUntil : null
+        }
+      });
+    }
+
+    return null;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: now
+    },
+    select: {
+      id: true,
+      mustChangePassword: true
+    }
+  });
+
+  return updatedUser;
+}
+
+export async function changeOwnPassword(input: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  if (input.newPassword !== input.confirmPassword) {
+    throw new Error("Confirmacao da nova senha nao confere.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: {
+      id: true,
+      passwordHash: true,
+      status: true
+    }
+  });
+
+  const currentPasswordMatches =
+    Boolean(user?.passwordHash.startsWith("$2")) &&
+    (await bcrypt.compare(input.currentPassword, user?.passwordHash ?? ""));
+
+  if (
+    !user ||
+    user.status !== RecordStatus.ACTIVE ||
+    !currentPasswordMatches
+  ) {
+    throw new Error("Senha atual invalida.");
+  }
+
+  if (await bcrypt.compare(input.newPassword, user.passwordHash)) {
+    throw new Error("A nova senha deve ser diferente da senha atual.");
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: await hashPassword(input.newPassword),
+      mustChangePassword: false,
+      passwordChangedAt: new Date(),
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      sessionVersion: { increment: 1 }
+    }
+  });
+}
+
+export async function resetUserPassword(input: {
+  targetUserId: string;
+  password: string;
+}) {
+  await prisma.user.update({
+    where: { id: input.targetUserId },
+    data: {
+      passwordHash: await hashPassword(input.password),
+      mustChangePassword: true,
+      passwordChangedAt: null,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      sessionVersion: { increment: 1 }
     }
   });
 }
