@@ -19,68 +19,98 @@ import {
 import { requirePageUser } from "@/lib/auth";
 import { logoutAction } from "@/app/login/actions";
 import { hasPermission, type Permission } from "@/lib/permissions";
+import { MobileNavigation } from "@/components/layout/mobile-navigation";
 
 type NavigationItem = {
   href: string;
   label: string;
+  iconKey: IconKey;
   icon: LucideIcon;
   permission?: Permission;
 };
 
+export type IconKey =
+  | "archive"
+  | "barChart"
+  | "boxes"
+  | "clipboardCheck"
+  | "handshake"
+  | "mapPinned"
+  | "search"
+  | "shieldCheck"
+  | "truck"
+  | "upload"
+  | "users";
+
+export type MobileNavigationItem = {
+  href: string;
+  label: string;
+  iconKey: IconKey;
+};
+
 const navigation: NavigationItem[] = [
-  { href: "/", label: "Dashboard", icon: BarChart3 },
-  { href: "/busca", label: "Busca", icon: Search },
+  { href: "/", label: "Dashboard", iconKey: "barChart", icon: BarChart3 },
+  { href: "/busca", label: "Busca", iconKey: "search", icon: Search },
   {
     href: "/produtos",
     label: "Produtos",
+    iconKey: "archive",
     icon: Archive,
     permission: "products:write"
   },
   {
     href: "/fornecedores",
     label: "Fornecedores",
+    iconKey: "handshake",
     icon: Handshake,
     permission: "suppliers:write"
   },
   {
     href: "/locais",
     label: "Locais",
+    iconKey: "mapPinned",
     icon: MapPinned,
     permission: "locations:write"
   },
   {
     href: "/movimentacoes",
     label: "Movimentacoes",
+    iconKey: "truck",
     icon: Truck,
     permission: "stock:read"
   },
   {
     href: "/inventario",
     label: "Inventario",
+    iconKey: "clipboardCheck",
     icon: ClipboardCheck,
     permission: "inventory:audit"
   },
   {
     href: "/relatorios",
     label: "Relatorios",
+    iconKey: "boxes",
     icon: Boxes,
     permission: "reports:read"
   },
   {
     href: "/importacao",
     label: "Importacao",
+    iconKey: "upload",
     icon: Upload,
     permission: "imports:write"
   },
   {
     href: "/usuarios",
     label: "Usuarios",
+    iconKey: "users",
     icon: Users,
     permission: "users:write"
   },
   {
     href: "/seguranca",
     label: "Seguranca",
+    iconKey: "shieldCheck",
     icon: ShieldCheck,
     permission: "security:read"
   }
@@ -108,11 +138,25 @@ export async function AppShell({
   const allowedNavigation = navigation.filter(
     (item) => !item.permission || hasPermission(user.role, item.permission)
   );
+  const mobileNavigation = allowedNavigation.map(
+    ({ href, label, iconKey }) => ({
+      href,
+      label,
+      iconKey
+    })
+  );
 
   return (
     <div className="min-h-screen bg-paper">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-stone-200 bg-white px-4 py-5 lg:block">
-        <div className="mb-8">
+      <MobileNavigation
+        navigation={mobileNavigation}
+        userName={user.name}
+        userRoleLabel={roleLabels[user.role]}
+        showMfaLink={user.role === "ADMIN"}
+      />
+
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-stone-200 bg-white px-4 py-5 lg:flex">
+        <div className="mb-6 shrink-0">
           <p className="text-sm font-semibold uppercase tracking-normal text-cellar">
             Estoque Vinhos
           </p>
@@ -121,7 +165,7 @@ export async function AppShell({
           </h1>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
           {allowedNavigation.map((item) => {
             const Icon = item.icon;
             return (
@@ -137,7 +181,7 @@ export async function AppShell({
           })}
         </nav>
 
-        <div className="absolute inset-x-4 bottom-5 rounded-md border border-stone-200 bg-stone-50 p-3">
+        <div className="mt-5 shrink-0 rounded-md border border-stone-200 bg-stone-50 p-3">
           <p className="text-sm font-semibold text-ink">{user.name}</p>
           <p className="mt-1 text-xs text-stone-500">
             {roleLabels[user.role]}
