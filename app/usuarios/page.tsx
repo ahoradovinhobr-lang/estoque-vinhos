@@ -1,14 +1,16 @@
 import { RecordStatus, UserRole } from "@prisma/client";
-import { Plus, RotateCcw, Users, XCircle } from "lucide-react";
+import { KeyRound, Plus, RotateCcw, Users, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 import { prisma } from "@/lib/prisma";
 
 import {
   createUserAction,
   inactivateUserAction,
-  reactivateUserAction
+  reactivateUserAction,
+  resetUserPasswordAction
 } from "./actions";
 
 const roleLabels: Record<UserRole, string> = {
@@ -20,7 +22,7 @@ const roleLabels: Record<UserRole, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
-  await requirePagePermission("users:write");
+  const currentUser = await requirePagePermission("users:write");
 
   const users = await prisma.user.findMany({
     orderBy: [{ status: "asc" }, { name: "asc" }]
@@ -81,7 +83,7 @@ export default async function UsersPage() {
             <input
               name="password"
               type="password"
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               required
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
@@ -103,13 +105,15 @@ export default async function UsersPage() {
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] border-collapse text-sm">
+          <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Usuario</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Perfil</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Senha</th>
+                <th className="px-4 py-3 font-medium">Ultimo login</th>
                 <th className="px-4 py-3 text-right font-medium">Acao</th>
               </tr>
             </thead>
@@ -126,29 +130,69 @@ export default async function UsersPage() {
                   <td className="px-4 py-3 text-stone-600">
                     {user.status === RecordStatus.ACTIVE ? "Ativo" : "Inativo"}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <form
-                      action={
-                        user.status === RecordStatus.ACTIVE
-                          ? inactivateUserAction
-                          : reactivateUserAction
-                      }
-                    >
-                      <input type="hidden" name="id" value={user.id} />
-                      <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
-                        {user.status === RecordStatus.ACTIVE ? (
-                          <>
-                            <XCircle aria-hidden className="h-4 w-4" />
-                            Inativar
-                          </>
-                        ) : (
-                          <>
-                            <RotateCcw aria-hidden className="h-4 w-4" />
-                            Reativar
-                          </>
-                        )}
-                      </button>
-                    </form>
+                  <td className="px-4 py-3 text-stone-600">
+                    {user.mustChangePassword
+                      ? "Troca obrigatoria"
+                      : user.passwordChangedAt
+                        ? "Alterada"
+                        : "Definida"}
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
+                    {user.lastLoginAt
+                      ? user.lastLoginAt.toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo"
+                        })
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-[420px] justify-end gap-2">
+                      {user.id === currentUser.id ? (
+                        <span className="inline-flex h-9 items-center rounded-md border border-stone-200 px-3 text-sm text-stone-500">
+                          Minha conta
+                        </span>
+                      ) : (
+                        <form
+                          action={resetUserPasswordAction}
+                          className="flex gap-2"
+                        >
+                          <input type="hidden" name="id" value={user.id} />
+                          <input
+                            name="password"
+                            type="password"
+                            minLength={PASSWORD_MIN_LENGTH}
+                            required
+                            placeholder="senha temporaria"
+                            className="h-9 w-44 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+                          />
+                          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                            <KeyRound aria-hidden className="h-4 w-4" />
+                            Reset
+                          </button>
+                        </form>
+                      )}
+                      <form
+                        action={
+                          user.status === RecordStatus.ACTIVE
+                            ? inactivateUserAction
+                            : reactivateUserAction
+                        }
+                      >
+                        <input type="hidden" name="id" value={user.id} />
+                        <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                          {user.status === RecordStatus.ACTIVE ? (
+                            <>
+                              <XCircle aria-hidden className="h-4 w-4" />
+                              Inativar
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw aria-hidden className="h-4 w-4" />
+                              Reativar
+                            </>
+                          )}
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}

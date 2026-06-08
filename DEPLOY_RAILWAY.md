@@ -37,10 +37,10 @@ Observacoes:
 
 - `DATABASE_URL` deve apontar para o PostgreSQL do Railway.
 - `AUTH_SECRET` deve ser um segredo forte com pelo menos 32 caracteres.
-- `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` criam o primeiro usuario administrador quando ainda nao existe usuario operacional ativo. A senha deve ter pelo menos 8 caracteres.
+- `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` criam o primeiro usuario administrador quando ainda nao existe usuario operacional ativo. A senha deve ter pelo menos 15 caracteres.
 - `INITIAL_ADMIN_NAME` e opcional; se nao for informado, o nome inicial sera `Administrador`.
 - `APP_URL` deve ser a URL publica gerada pelo Railway.
-- Depois do primeiro acesso real, trocar a senha do administrador quando esta tela existir e remover ou rotacionar a senha inicial do Railway.
+- Depois do primeiro acesso real, trocar a senha do administrador em `Minha conta` e remover `INITIAL_ADMIN_PASSWORD` do Railway.
 
 ## 4. Build e start
 
