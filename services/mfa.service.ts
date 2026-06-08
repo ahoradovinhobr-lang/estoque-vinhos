@@ -24,6 +24,10 @@ type MfaUserForFailure = {
   mfaLockedUntil: Date | null;
 };
 
+type MfaLoginVerificationResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
 async function createQrCodeDataUrl(otpAuthUri: string): Promise<string | null> {
   try {
     const QRCode = await import("qrcode");
@@ -330,7 +334,7 @@ async function useRecoveryCode(input: {
 export async function verifyMfaForLogin(input: {
   userId: string;
   code: string;
-}) {
+}): Promise<MfaLoginVerificationResult> {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: {
