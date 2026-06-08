@@ -1,8 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { SecurityEventType } from "@prisma/client";
 
-import { clearSession, createSession, isAuthConfigured } from "@/lib/auth";
+import {
+  clearSession,
+  createSession,
+  getCurrentUser,
+  isAuthConfigured
+} from "@/lib/auth";
+import { recordSecurityEvent } from "@/services/security-events.service";
 import { authenticateUser } from "@/services/users.service";
 
 import type { LoginState } from "./types";
@@ -37,6 +44,17 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    await recordSecurityEvent({
+      eventType: SecurityEventType.LOGOUT,
+      actorUserId: user.id,
+      subjectUserId: user.id,
+      email: user.email
+    });
+  }
+
   await clearSession();
   redirect("/login");
 }

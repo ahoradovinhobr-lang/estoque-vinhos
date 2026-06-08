@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
-import { RecordStatus, UserRole } from "@prisma/client";
+import { RecordStatus, SecurityEventType, UserRole } from "@prisma/client";
 
 import { validatePasswordPolicy } from "@/lib/password-policy";
 import { prisma } from "@/lib/prisma";
+import { recordSecurityEvent } from "@/services/security-events.service";
 
 const SYSTEM_USER_EMAIL = "operador@estoque.local";
 export const LOGIN_LOCK_THRESHOLD = 5;
@@ -168,13 +169,42 @@ export async function authenticateUser(input: {
   ) {
     if (user && user.status === RecordStatus.ACTIVE && !isLocked) {
       const failedLoginAttempts = user.failedLoginAttempts + 1;
+      const willLock = failedLoginAttempts >= LOGIN_LOCK_THRESHOLD;
 
       await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts,
-          lockedUntil:
-            failedLoginAttempts >= LOGIN_LOCK_THRESHOLD ? lockUntil : null
+          lockedUntil: willLock ? lockUntil : null
+        }
+      });
+
+      await recordSecurityEvent({
+        eventType: SecurityEventType.LOGIN_FAILURE,
+        subjectUserId: user.id,
+        email,
+        metadata: {
+          failedLoginAttempts
+        }
+      });
+
+      if (willLock) {
+        await recordSecurityEvent({
+          eventType: SecurityEventType.LOGIN_LOCKOUT,
+          subjectUserId: user.id,
+          email,
+          metadata: {
+            lockedUntil: lockUntil.toISOString()
+          }
+        });
+      }
+    } else {
+      await recordSecurityEvent({
+        eventType: SecurityEventType.LOGIN_FAILURE,
+        subjectUserId: user?.id ?? null,
+        email,
+        metadata: {
+          reason: isLocked ? "locked" : "invalid_credentials"
         }
       });
     }
@@ -193,6 +223,13 @@ export async function authenticateUser(input: {
       id: true,
       mustChangePassword: true
     }
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.LOGIN_SUCCESS,
+    actorUserId: user.id,
+    subjectUserId: user.id,
+    email: user.email
   });
 
   return updatedUser;
@@ -243,6 +280,12 @@ export async function changeOwnPassword(input: {
       lockedUntil: null,
       sessionVersion: { increment: 1 }
     }
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.PASSWORD_CHANGE,
+    actorUserId: user.id,
+    subjectUserId: user.id
   });
 }
 

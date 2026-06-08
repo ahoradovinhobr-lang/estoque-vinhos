@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { RecordStatus, UserRole } from "@prisma/client";
+import { RecordStatus, SecurityEventType, UserRole } from "@prisma/client";
 
 import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordSecurityEvent } from "@/services/security-events.service";
 import { createUser, resetUserPassword } from "@/services/users.service";
 
 function requiredText(formData: FormData, field: string, label: string): string {
@@ -18,13 +19,23 @@ function requiredText(formData: FormData, field: string, label: string): string 
 }
 
 export async function createUserAction(formData: FormData) {
-  await requireActionPermission("users:write");
+  const currentUser = await requireActionPermission("users:write");
 
-  await createUser({
+  const createdUser = await createUser({
     name: requiredText(formData, "name", "Nome"),
     email: requiredText(formData, "email", "Email"),
     password: requiredText(formData, "password", "Senha"),
     role: requiredText(formData, "role", "Perfil") as UserRole
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.USER_CREATED,
+    actorUserId: currentUser.id,
+    subjectUserId: createdUser.id,
+    email: createdUser.email,
+    metadata: {
+      role: createdUser.role
+    }
   });
 
   revalidatePath("/usuarios");
@@ -69,16 +80,28 @@ export async function inactivateUserAction(formData: FormData) {
     data: { status: RecordStatus.INACTIVE }
   });
 
+  await recordSecurityEvent({
+    eventType: SecurityEventType.USER_INACTIVATED,
+    actorUserId: currentUser.id,
+    subjectUserId: id
+  });
+
   revalidatePath("/usuarios");
 }
 
 export async function reactivateUserAction(formData: FormData) {
-  await requireActionPermission("users:write");
+  const currentUser = await requireActionPermission("users:write");
   const id = requiredText(formData, "id", "Usuario");
 
   await prisma.user.update({
     where: { id },
     data: { status: RecordStatus.ACTIVE }
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.USER_REACTIVATED,
+    actorUserId: currentUser.id,
+    subjectUserId: id
   });
 
   revalidatePath("/usuarios");
@@ -96,6 +119,12 @@ export async function resetUserPasswordAction(formData: FormData) {
   await resetUserPassword({
     targetUserId: id,
     password
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.PASSWORD_RESET,
+    actorUserId: currentUser.id,
+    subjectUserId: id
   });
 
   revalidatePath("/usuarios");

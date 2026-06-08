@@ -83,6 +83,20 @@ enum ImportStatus {
   @@map("import_status")
 }
 
+enum SecurityEventType {
+  LOGIN_SUCCESS      @map("login_success")
+  LOGIN_FAILURE      @map("login_failure")
+  LOGIN_LOCKOUT      @map("login_lockout")
+  LOGOUT             @map("logout")
+  PASSWORD_CHANGE    @map("password_change")
+  PASSWORD_RESET     @map("password_reset")
+  USER_CREATED       @map("user_created")
+  USER_INACTIVATED   @map("user_inactivated")
+  USER_REACTIVATED   @map("user_reactivated")
+
+  @@map("security_event_type")
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   name         String
@@ -102,8 +116,31 @@ model User {
   movements     StockMovement[]
   inventoryAudits InventoryAudit[]
   importBatches ImportBatch[]
+  securityEventsActed SecurityEvent[] @relation("SecurityEventActor")
+  securityEventsSubject SecurityEvent[] @relation("SecurityEventSubject")
 
   @@map("users")
+}
+
+model SecurityEvent {
+  id            String            @id @default(uuid()) @db.Uuid
+  eventType     SecurityEventType @map("event_type")
+  actorUserId   String?           @map("actor_user_id") @db.Uuid
+  subjectUserId String?           @map("subject_user_id") @db.Uuid
+  email         String?
+  ipAddress     String?           @map("ip_address")
+  userAgent     String?           @map("user_agent")
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  actorUser   User? @relation("SecurityEventActor", fields: [actorUserId], references: [id])
+  subjectUser User? @relation("SecurityEventSubject", fields: [subjectUserId], references: [id])
+
+  @@index([eventType, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([subjectUserId, createdAt])
+  @@index([email, createdAt])
+  @@map("security_events")
 }
 
 model Supplier {
