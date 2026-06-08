@@ -11,7 +11,9 @@ preparacao para uso com dados reais.
 ## Referencias usadas
 
 - OWASP Authentication Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+- OWASP Multifactor Authentication Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
 - OWASP Session Management Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+- NIST SP 800-63B: https://pages.nist.gov/800-63-4/sp800-63b.html
 - Next.js headers: https://nextjs.org/docs/app/api-reference/config/next-config-js/headers
 
 ## Melhorias aplicadas neste sprint
@@ -63,14 +65,26 @@ preparacao para uso com dados reais.
    - `INITIAL_ADMIN_PASSWORD` foi removida do Railway apos a troca da senha do
      usuario `gerente`.
 
+9. MFA para administradores
+   - MFA obrigatorio para usuarios `ADMIN`.
+   - TOTP compativel com aplicativos autenticadores.
+   - Chave MFA criptografada no banco com material derivado do `AUTH_SECRET`.
+   - Codigo MFA exigido em etapa separada antes da criacao da sessao completa.
+   - Cookie temporario de desafio MFA com expiracao curta.
+   - Bloqueio temporario apos 5 falhas de MFA.
+   - Codigos de recuperacao gerados uma unica vez e armazenados com hash.
+   - Reset administrativo de MFA para perda de dispositivo.
+   - Eventos de MFA incluidos na auditoria de seguranca.
+
 ## Achados atuais
 
-### P1 - MFA ainda nao implementado
+### P1 - MFA precisa ser ativado e testado em producao
 
-O sistema usa senha unica. Para contas admin, isso ainda e risco relevante.
+O controle de MFA foi implementado no app, mas precisa ser publicado, ativado
+no usuario `gerente` e validado em producao antes da carga real.
 
-Acao recomendada: adicionar segundo fator para administradores antes de uso em
-larga escala, ou restringir acesso por rede/VPN enquanto MFA nao existir.
+Acao recomendada: apos o deploy, configurar o autenticador do `gerente`, guardar
+os codigos de recuperacao e testar login com senha + MFA.
 
 ### P2 - Sem recuperacao segura de senha
 
@@ -105,6 +119,10 @@ build/teste confiavel, para evitar quebra silenciosa de hidratacao do Next.js.
 
 - Trocar a senha do usuario `gerente`. Concluido.
 - Remover `INITIAL_ADMIN_PASSWORD` do Railway. Concluido.
+- Publicar o sprint de MFA.
+- Configurar MFA do usuario `gerente`.
+- Guardar os codigos de recuperacao fora do app.
+- Testar login com senha + MFA.
 - Criar pelo menos um usuario `ESTOQUE` e um usuario `CONSULTA`.
 - Testar login, logout, troca de senha e reset administrativo.
 - Validar headers em producao.
@@ -113,6 +131,5 @@ build/teste confiavel, para evitar quebra silenciosa de hidratacao do Next.js.
 
 ## Decisao tecnica
 
-O app ainda nao deve receber carga real de estoque antes da definicao da
-estrategia de MFA/restricao de acesso e da criacao dos usuarios operacionais
-reais.
+O app ainda nao deve receber carga real de estoque antes do deploy/teste do MFA,
+da criacao dos usuarios operacionais reais e da definicao minima de backup.

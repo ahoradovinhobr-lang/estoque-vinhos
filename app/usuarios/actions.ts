@@ -6,6 +6,7 @@ import { RecordStatus, SecurityEventType, UserRole } from "@prisma/client";
 import { requireActionPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordSecurityEvent } from "@/services/security-events.service";
+import { resetUserMfa } from "@/services/mfa.service";
 import { createUser, resetUserPassword } from "@/services/users.service";
 
 function requiredText(formData: FormData, field: string, label: string): string {
@@ -125,6 +126,22 @@ export async function resetUserPasswordAction(formData: FormData) {
     eventType: SecurityEventType.PASSWORD_RESET,
     actorUserId: currentUser.id,
     subjectUserId: id
+  });
+
+  revalidatePath("/usuarios");
+}
+
+export async function resetUserMfaAction(formData: FormData) {
+  const currentUser = await requireActionPermission("users:write");
+  const id = requiredText(formData, "id", "Usuario");
+
+  if (id === currentUser.id) {
+    throw new Error("Outro administrador precisa resetar seu MFA.");
+  }
+
+  await resetUserMfa({
+    actorUserId: currentUser.id,
+    targetUserId: id
   });
 
   revalidatePath("/usuarios");

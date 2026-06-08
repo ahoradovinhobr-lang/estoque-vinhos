@@ -1,5 +1,12 @@
 import { RecordStatus, UserRole } from "@prisma/client";
-import { KeyRound, Plus, RotateCcw, Users, XCircle } from "lucide-react";
+import {
+  KeyRound,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Users,
+  XCircle
+} from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
@@ -10,6 +17,7 @@ import {
   createUserAction,
   inactivateUserAction,
   reactivateUserAction,
+  resetUserMfaAction,
   resetUserPasswordAction
 } from "./actions";
 
@@ -105,7 +113,7 @@ export default async function UsersPage() {
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] border-collapse text-sm">
+          <table className="w-full min-w-[1280px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Usuario</th>
@@ -113,6 +121,7 @@ export default async function UsersPage() {
                 <th className="px-4 py-3 font-medium">Perfil</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Senha</th>
+                <th className="px-4 py-3 font-medium">MFA</th>
                 <th className="px-4 py-3 font-medium">Ultimo login</th>
                 <th className="px-4 py-3 text-right font-medium">Acao</th>
               </tr>
@@ -138,6 +147,13 @@ export default async function UsersPage() {
                         : "Definida"}
                   </td>
                   <td className="px-4 py-3 text-stone-600">
+                    {user.role === UserRole.ADMIN
+                      ? user.mfaEnabled
+                        ? "Ativo"
+                        : "Obrigatorio"
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
                     {user.lastLoginAt
                       ? user.lastLoginAt.toLocaleString("pt-BR", {
                           timeZone: "America/Sao_Paulo"
@@ -145,7 +161,7 @@ export default async function UsersPage() {
                       : "-"}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex min-w-[420px] justify-end gap-2">
+                    <div className="flex min-w-[540px] justify-end gap-2">
                       {user.id === currentUser.id ? (
                         <span className="inline-flex h-9 items-center rounded-md border border-stone-200 px-3 text-sm text-stone-500">
                           Minha conta
@@ -170,6 +186,15 @@ export default async function UsersPage() {
                           </button>
                         </form>
                       )}
+                      {user.id !== currentUser.id && user.mfaEnabled ? (
+                        <form action={resetUserMfaAction}>
+                          <input type="hidden" name="id" value={user.id} />
+                          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                            <ShieldCheck aria-hidden className="h-4 w-4" />
+                            Reset MFA
+                          </button>
+                        </form>
+                      ) : null}
                       <form
                         action={
                           user.status === RecordStatus.ACTIVE

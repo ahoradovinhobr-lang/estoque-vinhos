@@ -94,12 +94,17 @@ const roleLabels: Record<UserRole, string> = {
 
 export async function AppShell({
   allowPasswordChangeRequired = false,
+  allowMfaSetupRequired = false,
   children
 }: {
   allowPasswordChangeRequired?: boolean;
+  allowMfaSetupRequired?: boolean;
   children: React.ReactNode;
 }) {
-  const user = await requirePageUser({ allowPasswordChangeRequired });
+  const user = await requirePageUser({
+    allowPasswordChangeRequired,
+    allowMfaSetupRequired
+  });
   const allowedNavigation = navigation.filter(
     (item) => !item.permission || hasPermission(user.role, item.permission)
   );
@@ -142,8 +147,17 @@ export async function AppShell({
             className="mt-3 flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
           >
             <KeyRound aria-hidden className="h-4 w-4" />
-            Minha conta
+            Senha
           </Link>
+          {user.role === "ADMIN" ? (
+            <Link
+              href="/minha-conta/mfa"
+              className="mt-3 flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+            >
+              <ShieldCheck aria-hidden className="h-4 w-4" />
+              MFA
+            </Link>
+          ) : null}
           <form action={logoutAction} className="mt-3">
             <button className="h-9 w-full rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-100">
               Sair

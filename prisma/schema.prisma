@@ -93,6 +93,11 @@ enum SecurityEventType {
   USER_CREATED       @map("user_created")
   USER_INACTIVATED   @map("user_inactivated")
   USER_REACTIVATED   @map("user_reactivated")
+  MFA_SUCCESS        @map("mfa_success")
+  MFA_FAILURE        @map("mfa_failure")
+  MFA_ENABLED        @map("mfa_enabled")
+  MFA_RESET          @map("mfa_reset")
+  RECOVERY_CODE_USED @map("recovery_code_used")
 
   @@map("security_event_type")
 }
@@ -110,16 +115,38 @@ model User {
   lockedUntil  DateTime?    @map("locked_until")
   lastLoginAt  DateTime?    @map("last_login_at")
   sessionVersion Int        @default(0) @map("session_version")
+  mfaEnabled Boolean        @default(false) @map("mfa_enabled")
+  mfaSecretEncrypted String? @map("mfa_secret_encrypted")
+  mfaPendingSecretEncrypted String? @map("mfa_pending_secret_encrypted")
+  mfaPendingSecretCreatedAt DateTime? @map("mfa_pending_secret_created_at")
+  mfaConfirmedAt DateTime?  @map("mfa_confirmed_at")
+  mfaFailedAttempts Int     @default(0) @map("mfa_failed_attempts")
+  mfaLockedUntil DateTime?  @map("mfa_locked_until")
+  mfaLastUsedCounter BigInt? @map("mfa_last_used_counter")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
   movements     StockMovement[]
   inventoryAudits InventoryAudit[]
   importBatches ImportBatch[]
+  mfaRecoveryCodes MfaRecoveryCode[]
   securityEventsActed SecurityEvent[] @relation("SecurityEventActor")
   securityEventsSubject SecurityEvent[] @relation("SecurityEventSubject")
 
   @@map("users")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@map("mfa_recovery_codes")
 }
 
 model SecurityEvent {
