@@ -148,7 +148,8 @@ export async function authenticateUser(input: {
           passwordHash: true,
           failedLoginAttempts: true,
           lockedUntil: true,
-          mustChangePassword: true
+          mustChangePassword: true,
+          mfaEnabled: true
         }
       })
     : null;
@@ -212,16 +213,21 @@ export async function authenticateUser(input: {
     return null;
   }
 
+  const mfaRequired = user.role === UserRole.ADMIN && user.mfaEnabled;
+
   const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: {
       failedLoginAttempts: 0,
       lockedUntil: null,
-      lastLoginAt: now
+      ...(mfaRequired ? {} : { lastLoginAt: now })
     },
     select: {
       id: true,
-      mustChangePassword: true
+      email: true,
+      role: true,
+      mustChangePassword: true,
+      mfaEnabled: true
     }
   });
 
@@ -229,7 +235,10 @@ export async function authenticateUser(input: {
     eventType: SecurityEventType.LOGIN_SUCCESS,
     actorUserId: user.id,
     subjectUserId: user.id,
-    email: user.email
+    email: user.email,
+    metadata: {
+      mfaRequired
+    }
   });
 
   return updatedUser;

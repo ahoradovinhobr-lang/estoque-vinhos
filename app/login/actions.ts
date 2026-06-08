@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { SecurityEventType } from "@prisma/client";
 
 import {
+  authenticatedHomePath,
+  clearMfaChallenge,
   clearSession,
+  createMfaChallenge,
   createSession,
   getCurrentUser,
   isAuthConfigured
@@ -39,8 +42,14 @@ export async function loginAction(
     };
   }
 
+  if (user.role === "ADMIN" && user.mfaEnabled) {
+    await createMfaChallenge(user.id);
+    redirect("/login/mfa");
+  }
+
+  await clearMfaChallenge();
   await createSession(user.id);
-  redirect(user.mustChangePassword ? "/minha-conta/senha" : "/");
+  redirect(authenticatedHomePath(user));
 }
 
 export async function logoutAction() {
