@@ -53,17 +53,17 @@ preparacao para uso com dados reais.
    - `Permissions-Policy` bloqueando camera, microfone, geolocalizacao e
      recursos nao usados.
 
+7. Eventos de seguranca
+   - Registro de login com sucesso, falha de login, bloqueio temporario,
+     logout, troca de senha, reset de senha e gestao de usuarios.
+   - Nova rota administrativa `/seguranca` para consultar os eventos recentes.
+   - Eventos incluem ator, alvo, email, IP, user-agent e metadados minimos.
+
+8. Segredo de bootstrap removido
+   - `INITIAL_ADMIN_PASSWORD` foi removida do Railway apos a troca da senha do
+     usuario `gerente`.
+
 ## Achados atuais
-
-### P1 - Remover segredo de bootstrap da Railway
-
-`INITIAL_ADMIN_PASSWORD` deve ser removida do servico Railway depois que o
-administrador trocar a senha em `/minha-conta/senha`.
-
-Risco: manutencao desnecessaria de segredo operacional em variavel de ambiente.
-
-Acao recomendada: apos trocar a senha, apagar `INITIAL_ADMIN_PASSWORD`. Manter
-`AUTH_SECRET` e `DATABASE_URL`.
 
 ### P1 - MFA ainda nao implementado
 
@@ -71,14 +71,6 @@ O sistema usa senha unica. Para contas admin, isso ainda e risco relevante.
 
 Acao recomendada: adicionar segundo fator para administradores antes de uso em
 larga escala, ou restringir acesso por rede/VPN enquanto MFA nao existir.
-
-### P1 - Logs/auditoria de autenticacao incompletos
-
-O app registra movimentos de estoque por usuario, mas ainda nao registra eventos
-de seguranca como login, falha de login, lockout, troca de senha e reset.
-
-Acao recomendada: criar tabela `security_events` com usuario, tipo de evento,
-data, IP/origem quando disponivel e metadados seguros.
 
 ### P2 - Sem recuperacao segura de senha
 
@@ -111,8 +103,8 @@ build/teste confiavel, para evitar quebra silenciosa de hidratacao do Next.js.
 
 ## Checklist antes de carga real
 
-- Trocar a senha do usuario `gerente`.
-- Remover `INITIAL_ADMIN_PASSWORD` do Railway.
+- Trocar a senha do usuario `gerente`. Concluido.
+- Remover `INITIAL_ADMIN_PASSWORD` do Railway. Concluido.
 - Criar pelo menos um usuario `ESTOQUE` e um usuario `CONSULTA`.
 - Testar login, logout, troca de senha e reset administrativo.
 - Validar headers em producao.
@@ -121,6 +113,6 @@ build/teste confiavel, para evitar quebra silenciosa de hidratacao do Next.js.
 
 ## Decisao tecnica
 
-O app ainda nao deve receber carga real de estoque antes da conclusao dos P1:
-remover segredo de bootstrap, definir estrategia de MFA/restricao de acesso e
-registrar eventos de seguranca.
+O app ainda nao deve receber carga real de estoque antes da definicao da
+estrategia de MFA/restricao de acesso e da criacao dos usuarios operacionais
+reais.

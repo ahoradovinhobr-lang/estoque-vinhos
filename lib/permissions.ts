@@ -10,6 +10,7 @@ export type Permission =
   | "inventory:audit"
   | "reports:read"
   | "users:write"
+  | "security:read"
   | "imports:write";
 
 const rolePermissions: Record<UserRole, Permission[]> = {
@@ -23,6 +24,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "inventory:audit",
     "reports:read",
     "users:write",
+    "security:read",
     "imports:write"
   ],
   [UserRole.ESTOQUE]: [

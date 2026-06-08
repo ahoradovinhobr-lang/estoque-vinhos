@@ -9,6 +9,7 @@ import {
   KeyRound,
   MapPinned,
   Search,
+  ShieldCheck,
   Truck,
   Upload,
   Users,
@@ -76,6 +77,12 @@ const navigation: NavigationItem[] = [
     label: "Usuarios",
     icon: Users,
     permission: "users:write"
+  },
+  {
+    href: "/seguranca",
+    label: "Seguranca",
+    icon: ShieldCheck,
+    permission: "security:read"
   }
 ];
 
