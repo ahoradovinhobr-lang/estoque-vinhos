@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { Barcode, Boxes, ClipboardCheck, Wine } from "lucide-react";
-import { ProductType, RecordStatus, WineColor } from "@prisma/client";
+import {
+  BarcodeLookupSource,
+  ProductType,
+  RecordStatus,
+  WineColor
+} from "@prisma/client";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
+import {
+  lookupBarcodeProducts,
+  normalizeBarcode
+} from "@/services/barcode.service";
 
 import { BarcodeReader } from "./barcode-reader";
 
@@ -23,34 +31,42 @@ const wineColorLabels: Record<WineColor, string> = {
 type BarcodeReadingPageProps = {
   searchParams?: Promise<{
     codigo?: string;
+    fonte?: string;
   }>;
 };
 
 export const dynamic = "force-dynamic";
+
+function readingSource(value: string | undefined): BarcodeLookupSource {
+  if (value === "camera") {
+    return BarcodeLookupSource.CAMERA;
+  }
+
+  if (value === "input") {
+    return BarcodeLookupSource.INPUT;
+  }
+
+  return BarcodeLookupSource.DIRECT_URL;
+}
 
 export default async function BarcodeReadingPage({
   searchParams
 }: BarcodeReadingPageProps) {
   const user = await requirePagePermission("stock:read");
   const params = await searchParams;
-  const code = String(params?.codigo ?? "").trim();
+  const rawCode = String(params?.codigo ?? "");
+  const code = normalizeBarcode(rawCode);
   const canWriteStock = hasPermission(user.role, "stock:write");
   const canAuditInventory = hasPermission(user.role, "inventory:audit");
   const canCreateProduct = hasPermission(user.role, "products:write");
-  const products = code
-    ? await prisma.product.findMany({
-        where: { barcode: code },
-        include: {
-          supplier: true,
-          balances: {
-            include: {
-              storageLocation: true
-            }
-          }
-        },
-        orderBy: [{ status: "asc" }, { name: "asc" }, { vintage: "desc" }]
+  const lookup = code
+    ? await lookupBarcodeProducts({
+        barcode: code,
+        source: readingSource(params?.fonte),
+        userId: user.id
       })
-    : [];
+    : null;
+  const products = lookup?.products ?? [];
 
   return (
     <AppShell>
