@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Barcode, Boxes, ClipboardCheck, Wine } from "lucide-react";
+import { Barcode, Boxes, Wine } from "lucide-react";
 import {
   BarcodeLookupSource,
   ProductType,
@@ -10,12 +10,14 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import {
   lookupBarcodeProducts,
   normalizeBarcode
 } from "@/services/barcode.service";
 
 import { BarcodeReader } from "./barcode-reader";
+import { QuickActionForms } from "./quick-action-forms";
 
 const productTypeLabels: Record<ProductType, string> = {
   WINE: "Vinho",
@@ -28,10 +30,18 @@ const wineColorLabels: Record<WineColor, string> = {
   ROSE: "Rose"
 };
 
+const successLabels = {
+  entrada: "Entrada registrada. Saldo atualizado.",
+  saida: "Saida registrada. Saldo atualizado.",
+  transferencia: "Transferencia registrada. Saldos atualizados.",
+  inventario: "Inventario registrado."
+} as const;
+
 type BarcodeReadingPageProps = {
   searchParams?: Promise<{
     codigo?: string;
     fonte?: string;
+    sucesso?: string;
   }>;
 };
 
@@ -56,6 +66,11 @@ export default async function BarcodeReadingPage({
   const params = await searchParams;
   const rawCode = String(params?.codigo ?? "");
   const code = normalizeBarcode(rawCode);
+  const successKey = String(params?.sucesso ?? "");
+  const successMessage =
+    successKey in successLabels
+      ? successLabels[successKey as keyof typeof successLabels]
+      : null;
   const canWriteStock = hasPermission(user.role, "stock:write");
   const canAuditInventory = hasPermission(user.role, "inventory:audit");
   const canCreateProduct = hasPermission(user.role, "products:write");
@@ -63,10 +78,33 @@ export default async function BarcodeReadingPage({
     ? await lookupBarcodeProducts({
         barcode: code,
         source: readingSource(params?.fonte),
-        userId: user.id
+        userId: user.id,
+        shouldRegisterLookup: !successMessage
       })
     : null;
   const products = lookup?.products ?? [];
+  const [activeLocations, activeSuppliers] =
+    products.length > 0
+      ? await Promise.all([
+          prisma.storageLocation.findMany({
+            where: { status: RecordStatus.ACTIVE },
+            select: {
+              id: true,
+              code: true,
+              name: true
+            },
+            orderBy: { code: "asc" }
+          }),
+          prisma.supplier.findMany({
+            where: { status: RecordStatus.ACTIVE },
+            select: {
+              id: true,
+              name: true
+            },
+            orderBy: { name: "asc" }
+          })
+        ])
+      : [[], []];
 
   return (
     <AppShell>
@@ -78,6 +116,12 @@ export default async function BarcodeReadingPage({
       </header>
 
       <BarcodeReader initialCode={code} />
+
+      {successMessage ? (
+        <section className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {successMessage}
+        </section>
+      ) : null}
 
       {!code ? (
         <section className="mt-6 rounded-md border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
@@ -174,7 +218,7 @@ export default async function BarcodeReadingPage({
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
+                <div className="mt-4">
                   <div>
                     <p className="mb-2 flex items-center gap-2 text-sm font-medium text-stone-700">
                       <Boxes aria-hidden className="h-4 w-4 text-cellar" />
@@ -207,45 +251,15 @@ export default async function BarcodeReadingPage({
                   </div>
 
                   {isActive ? (
-                    <div className="grid min-w-44 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                      {canWriteStock ? (
-                        <>
-                          <Link
-                            href={`/movimentacoes/entrada?productId=${product.id}`}
-                            className="inline-flex h-9 items-center justify-center rounded-md bg-cellar px-3 text-sm font-semibold text-white hover:bg-[#4f2733]"
-                          >
-                            Entrada
-                          </Link>
-                          <Link
-                            href={`/movimentacoes/saida?productId=${product.id}`}
-                            className="inline-flex h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                          >
-                            Saida
-                          </Link>
-                          <Link
-                            href={`/movimentacoes/transferencia?productId=${product.id}`}
-                            className="inline-flex h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                          >
-                            Transferir
-                          </Link>
-                          <Link
-                            href={`/movimentacoes/ajuste?productId=${product.id}`}
-                            className="inline-flex h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                          >
-                            Ajustar
-                          </Link>
-                        </>
-                      ) : null}
-                      {canAuditInventory ? (
-                        <Link
-                          href={`/inventario/novo?productId=${product.id}`}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                        >
-                          <ClipboardCheck aria-hidden className="h-4 w-4" />
-                          Inventario
-                        </Link>
-                      ) : null}
-                    </div>
+                    <QuickActionForms
+                      product={product}
+                      code={code}
+                      balancesWithStock={balancesWithStock}
+                      activeLocations={activeLocations}
+                      activeSuppliers={activeSuppliers}
+                      canWriteStock={canWriteStock}
+                      canAuditInventory={canAuditInventory}
+                    />
                   ) : (
                     <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">
                       Produto inativo.
