@@ -9,6 +9,7 @@ type ScanControls = {
 };
 
 type CameraState = "idle" | "starting" | "scanning";
+type BarcodeSource = "input" | "camera";
 
 function cameraErrorMessage(error: unknown): string {
   if (error instanceof DOMException) {
@@ -49,7 +50,7 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
     focusInput();
   }
 
-  function goToCode(value: string) {
+  function goToCode(value: string, source: BarcodeSource) {
     const normalized = value.trim();
 
     setCode(normalized);
@@ -60,7 +61,9 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
       return;
     }
 
-    router.push(`/leitura?codigo=${encodeURIComponent(normalized)}`);
+    router.push(
+      `/leitura?codigo=${encodeURIComponent(normalized)}&fonte=${source}`
+    );
   }
 
   async function startCamera() {
@@ -101,7 +104,7 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
 
           lastDecodedRef.current = decoded;
           stopCamera();
-          goToCode(decoded);
+          goToCode(decoded, "camera");
         }
       );
 
@@ -134,7 +137,7 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
         onSubmit={(event) => {
           event.preventDefault();
           stopCamera();
-          goToCode(code);
+          goToCode(code, "input");
         }}
       >
         <label>

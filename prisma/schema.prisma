@@ -102,6 +102,23 @@ enum SecurityEventType {
   @@map("security_event_type")
 }
 
+enum BarcodeLookupStatus {
+  FOUND     @map("found")
+  NOT_FOUND @map("not_found")
+  AMBIGUOUS @map("ambiguous")
+
+  @@map("barcode_lookup_status")
+}
+
+enum BarcodeLookupSource {
+  INPUT      @map("input")
+  CAMERA     @map("camera")
+  DIRECT_URL @map("direct_url")
+  API        @map("api")
+
+  @@map("barcode_lookup_source")
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   name         String
@@ -130,6 +147,7 @@ model User {
   inventoryAudits InventoryAudit[]
   importBatches ImportBatch[]
   mfaRecoveryCodes MfaRecoveryCode[]
+  barcodeLookups BarcodeLookup[]
   securityEventsActed SecurityEvent[] @relation("SecurityEventActor")
   securityEventsSubject SecurityEvent[] @relation("SecurityEventSubject")
 
@@ -230,6 +248,7 @@ model Product {
   movements     StockMovement[]
   movementLines StockMovementLine[]
   inventoryAudits InventoryAudit[]
+  barcodeLookups BarcodeLookup[]
 
   @@index([name])
   @@index([barcode])
@@ -237,6 +256,28 @@ model Product {
   @@index([grape])
   @@index([productFamilyId, barcode])
   @@map("products")
+}
+
+model BarcodeLookup {
+  id                  String              @id @default(uuid()) @db.Uuid
+  barcode             String
+  status              BarcodeLookupStatus
+  source              BarcodeLookupSource @default(DIRECT_URL)
+  matchedProductId    String?             @map("matched_product_id") @db.Uuid
+  matchedProductCount Int                 @default(0) @map("matched_product_count")
+  userId              String?             @map("user_id") @db.Uuid
+  ipAddress           String?             @map("ip_address")
+  userAgent           String?             @map("user_agent")
+  createdAt           DateTime            @default(now()) @map("created_at")
+
+  matchedProduct Product? @relation(fields: [matchedProductId], references: [id])
+  user           User?    @relation(fields: [userId], references: [id])
+
+  @@index([barcode, createdAt])
+  @@index([status, createdAt])
+  @@index([matchedProductId, createdAt])
+  @@index([userId, createdAt])
+  @@map("barcode_lookups")
 }
 
 model StorageLocation {
