@@ -45,6 +45,7 @@ function requiredInteger(
 function revalidateMovementPaths() {
   revalidatePath("/");
   revalidatePath("/busca");
+  revalidatePath("/leitura");
   revalidatePath("/produtos");
   revalidatePath("/movimentacoes");
 }

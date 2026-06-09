@@ -25,7 +25,8 @@ const primaryButtonClass =
 
 type QuickActionFormsProps = {
   product: BarcodeLookupProduct;
-  code: string;
+  returnBarcode?: string;
+  returnQuery?: string;
   balancesWithStock: BarcodeLookupProduct["balances"];
   activeLocations: Pick<StorageLocation, "id" | "code" | "name">[];
   activeSuppliers: Pick<Supplier, "id" | "name">[];
@@ -33,9 +34,26 @@ type QuickActionFormsProps = {
   canAuditInventory: boolean;
 };
 
+function ReturnFields({
+  returnBarcode,
+  returnQuery
+}: Pick<QuickActionFormsProps, "returnBarcode" | "returnQuery">) {
+  return (
+    <>
+      {returnBarcode ? (
+        <input type="hidden" name="returnBarcode" value={returnBarcode} />
+      ) : null}
+      {returnQuery ? (
+        <input type="hidden" name="returnQuery" value={returnQuery} />
+      ) : null}
+    </>
+  );
+}
+
 export function QuickActionForms({
   product,
-  code,
+  returnBarcode,
+  returnQuery,
   balancesWithStock,
   activeLocations,
   activeSuppliers,
@@ -65,7 +83,10 @@ export function QuickActionForms({
                 className="mt-3 grid gap-3 lg:grid-cols-8"
               >
                 <input type="hidden" name="productId" value={product.id} />
-                <input type="hidden" name="returnBarcode" value={code} />
+                <ReturnFields
+                  returnBarcode={returnBarcode}
+                  returnQuery={returnQuery}
+                />
                 <input
                   type="hidden"
                   name="idempotencyKey"
@@ -151,7 +172,10 @@ export function QuickActionForms({
                   className="mt-3 grid gap-3 lg:grid-cols-8"
                 >
                   <input type="hidden" name="productId" value={product.id} />
-                  <input type="hidden" name="returnBarcode" value={code} />
+                  <ReturnFields
+                    returnBarcode={returnBarcode}
+                    returnQuery={returnQuery}
+                  />
                   <input
                     type="hidden"
                     name="idempotencyKey"
@@ -232,7 +256,10 @@ export function QuickActionForms({
                   className="mt-3 grid gap-3 lg:grid-cols-8"
                 >
                   <input type="hidden" name="productId" value={product.id} />
-                  <input type="hidden" name="returnBarcode" value={code} />
+                  <ReturnFields
+                    returnBarcode={returnBarcode}
+                    returnQuery={returnQuery}
+                  />
                   <input
                     type="hidden"
                     name="idempotencyKey"
@@ -320,7 +347,10 @@ export function QuickActionForms({
               className="mt-3 grid gap-3 lg:grid-cols-8"
             >
               <input type="hidden" name="productId" value={product.id} />
-              <input type="hidden" name="returnBarcode" value={code} />
+              <ReturnFields
+                returnBarcode={returnBarcode}
+                returnQuery={returnQuery}
+              />
               <input
                 type="hidden"
                 name="idempotencyKey"

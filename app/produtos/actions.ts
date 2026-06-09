@@ -104,6 +104,7 @@ export async function createProduct(formData: FormData) {
 
   revalidatePath("/produtos");
   revalidatePath("/busca");
+  revalidatePath("/leitura");
 }
 
 export async function inactivateProduct(formData: FormData) {
@@ -126,6 +127,7 @@ export async function inactivateProduct(formData: FormData) {
 
   revalidatePath("/produtos");
   revalidatePath("/busca");
+  revalidatePath("/leitura");
 }
 
 export async function reactivateProduct(formData: FormData) {
@@ -144,4 +146,5 @@ export async function reactivateProduct(formData: FormData) {
 
   revalidatePath("/produtos");
   revalidatePath("/busca");
+  revalidatePath("/leitura");
 }

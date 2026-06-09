@@ -53,10 +53,13 @@ function revalidateQuickReadingPaths() {
 
 function redirectToReading(formData: FormData, result: QuickActionResult): never {
   const barcode = optionalText(formData, "returnBarcode");
+  const query = optionalText(formData, "returnQuery");
   const searchParams = new URLSearchParams({ sucesso: result });
 
   if (barcode) {
     searchParams.set("codigo", barcode);
+  } else if (query) {
+    searchParams.set("q", query);
   }
 
   redirect(`/leitura?${searchParams.toString()}`);

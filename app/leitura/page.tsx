@@ -13,7 +13,8 @@ import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   lookupBarcodeProducts,
-  normalizeBarcode
+  normalizeBarcode,
+  type BarcodeLookupProduct
 } from "@/services/barcode.service";
 
 import { BarcodeReader } from "./barcode-reader";
@@ -40,6 +41,7 @@ const successLabels = {
 type BarcodeReadingPageProps = {
   searchParams?: Promise<{
     codigo?: string;
+    q?: string;
     fonte?: string;
     sucesso?: string;
   }>;
@@ -59,13 +61,47 @@ function readingSource(value: string | undefined): BarcodeLookupSource {
   return BarcodeLookupSource.DIRECT_URL;
 }
 
+async function searchProducts(query: string): Promise<BarcodeLookupProduct[]> {
+  return prisma.product.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { sku: { contains: query, mode: "insensitive" } },
+        { grape: { contains: query, mode: "insensitive" } },
+        { country: { contains: query, mode: "insensitive" } },
+        { vintage: { contains: query, mode: "insensitive" } },
+        { barcode: { contains: query, mode: "insensitive" } },
+        {
+          supplier: {
+            is: {
+              name: { contains: query, mode: "insensitive" }
+            }
+          }
+        }
+      ]
+    },
+    include: {
+      supplier: true,
+      balances: {
+        include: {
+          storageLocation: true
+        }
+      }
+    },
+    orderBy: [{ status: "asc" }, { name: "asc" }, { vintage: "desc" }],
+    take: 30
+  });
+}
+
 export default async function BarcodeReadingPage({
   searchParams
 }: BarcodeReadingPageProps) {
   const user = await requirePagePermission("stock:read");
   const params = await searchParams;
-  const rawCode = String(params?.codigo ?? "");
-  const code = normalizeBarcode(rawCode);
+  const code = normalizeBarcode(String(params?.codigo ?? ""));
+  const query = String(params?.q ?? "").trim();
+  const searchValue = code || query;
+  const isBarcodeLookup = Boolean(code);
   const successKey = String(params?.sucesso ?? "");
   const successMessage =
     successKey in successLabels
@@ -74,7 +110,7 @@ export default async function BarcodeReadingPage({
   const canWriteStock = hasPermission(user.role, "stock:write");
   const canAuditInventory = hasPermission(user.role, "inventory:audit");
   const canCreateProduct = hasPermission(user.role, "products:write");
-  const lookup = code
+  const barcodeLookup = code
     ? await lookupBarcodeProducts({
         barcode: code,
         source: readingSource(params?.fonte),
@@ -82,9 +118,13 @@ export default async function BarcodeReadingPage({
         shouldRegisterLookup: !successMessage
       })
     : null;
-  const products = lookup?.products ?? [];
+  const products = barcodeLookup
+    ? barcodeLookup.products
+    : query
+      ? await searchProducts(query)
+      : [];
   const [activeLocations, activeSuppliers] =
-    products.length > 0
+    products.length > 0 && (canWriteStock || canAuditInventory)
       ? await Promise.all([
           prisma.storageLocation.findMany({
             where: { status: RecordStatus.ACTIVE },
@@ -109,13 +149,13 @@ export default async function BarcodeReadingPage({
   return (
     <AppShell>
       <header className="mb-6 border-b border-stone-200 pb-5">
-        <p className="text-sm font-medium text-cellar">Leitura</p>
+        <p className="text-sm font-medium text-cellar">Busca e leitura</p>
         <h2 className="mt-1 text-2xl font-semibold text-ink">
-          Codigo de barras
+          Localizar vinho no estoque
         </h2>
       </header>
 
-      <BarcodeReader initialCode={code} />
+      <BarcodeReader initialValue={searchValue} />
 
       {successMessage ? (
         <section className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
@@ -123,21 +163,41 @@ export default async function BarcodeReadingPage({
         </section>
       ) : null}
 
-      {!code ? (
+      {!searchValue ? (
         <section className="mt-6 rounded-md border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
-          Nenhum codigo informado.
+          Digite nome, SKU, uva, pais, fornecedor ou leia um codigo de barras.
         </section>
       ) : products.length === 0 ? (
         <section className="mt-6 rounded-md border border-stone-200 bg-white p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-medium text-cellar">Nao cadastrado</p>
-              <h3 className="mt-1 text-lg font-semibold text-ink">{code}</h3>
-              <p className="mt-1 text-sm text-stone-500">
-                Nenhum produto usa este codigo de barras.
-              </p>
+              {isBarcodeLookup ? (
+                <>
+                  <p className="text-sm font-medium text-cellar">
+                    Nao cadastrado
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-ink">
+                    {code}
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Nenhum produto usa este codigo de barras.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-cellar">
+                    Sem resultado
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-ink">
+                    {query}
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Nenhum produto encontrado para esta busca.
+                  </p>
+                </>
+              )}
             </div>
-            {canCreateProduct ? (
+            {isBarcodeLookup && canCreateProduct ? (
               <Link
                 href={`/produtos?barcode=${encodeURIComponent(code)}`}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
@@ -145,16 +205,20 @@ export default async function BarcodeReadingPage({
                 <Barcode aria-hidden className="h-4 w-4" />
                 Cadastrar produto
               </Link>
-            ) : (
+            ) : isBarcodeLookup ? (
               <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600">
                 Solicite o cadastro para um usuario com permissao de produtos.
               </p>
-            )}
+            ) : null}
           </div>
         </section>
       ) : (
         <section className="mt-6 space-y-3">
-          {products.length > 1 ? (
+          {!isBarcodeLookup ? (
+            <div className="rounded-md border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
+              {products.length} resultado(s) para &quot;{query}&quot;.
+            </div>
+          ) : products.length > 1 ? (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Mais de um produto usa este codigo. Confirme SKU e safra antes da
               movimentacao.
@@ -205,7 +269,8 @@ export default async function BarcodeReadingPage({
                       {characteristics}
                     </p>
                     <p className="mt-1 text-sm text-stone-500">
-                      SKU {product.sku} - Codigo {product.barcode}
+                      SKU {product.sku}
+                      {product.barcode ? ` - Codigo ${product.barcode}` : ""}
                     </p>
                   </div>
                   <div className="rounded-md border border-stone-200 px-4 py-3 text-right">
@@ -253,7 +318,8 @@ export default async function BarcodeReadingPage({
                   {isActive ? (
                     <QuickActionForms
                       product={product}
-                      code={code}
+                      returnBarcode={isBarcodeLookup ? code : undefined}
+                      returnQuery={!isBarcodeLookup ? query : undefined}
                       balancesWithStock={balancesWithStock}
                       activeLocations={activeLocations}
                       activeSuppliers={activeSuppliers}
@@ -261,7 +327,7 @@ export default async function BarcodeReadingPage({
                       canAuditInventory={canAuditInventory}
                     />
                   ) : (
-                    <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">
+                    <p className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">
                       Produto inativo.
                     </p>
                   )}
