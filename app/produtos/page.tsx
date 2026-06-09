@@ -24,8 +24,17 @@ const wineColorLabels: Record<WineColor, string> = {
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductsPage() {
+type ProductsPageProps = {
+  searchParams?: Promise<{
+    barcode?: string;
+  }>;
+};
+
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   await requirePagePermission("products:write");
+
+  const params = await searchParams;
+  const initialBarcode = String(params?.barcode ?? "").trim();
 
   const [products, suppliers] = await Promise.all([
     prisma.product.findMany({
@@ -174,6 +183,7 @@ export default async function ProductsPage() {
             <input
               name="barcode"
               inputMode="numeric"
+              defaultValue={initialBarcode}
               placeholder="789..."
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />

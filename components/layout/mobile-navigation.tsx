@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Archive,
   BarChart3,
+  Barcode,
   Boxes,
   ClipboardCheck,
   Handshake,
@@ -29,6 +30,7 @@ import type {
 const iconMap: Record<IconKey, LucideIcon> = {
   archive: Archive,
   barChart: BarChart3,
+  barcode: Barcode,
   boxes: Boxes,
   clipboardCheck: ClipboardCheck,
   handshake: Handshake,
