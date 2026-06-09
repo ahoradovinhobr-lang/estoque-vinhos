@@ -3,7 +3,6 @@ import type { UserRole } from "@prisma/client";
 import {
   Archive,
   BarChart3,
-  Barcode,
   Boxes,
   ClipboardCheck,
   Handshake,
@@ -52,12 +51,11 @@ export type MobileNavigationItem = {
 
 const navigation: NavigationItem[] = [
   { href: "/", label: "Dashboard", iconKey: "barChart", icon: BarChart3 },
-  { href: "/busca", label: "Busca", iconKey: "search", icon: Search },
   {
     href: "/leitura",
-    label: "Leitura",
-    iconKey: "barcode",
-    icon: Barcode,
+    label: "Busca e leitura",
+    iconKey: "search",
+    icon: Search,
     permission: "stock:read"
   },
   {

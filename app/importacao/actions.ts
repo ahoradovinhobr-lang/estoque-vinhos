@@ -69,6 +69,7 @@ export async function applyImportAction(
 
     revalidatePath("/");
     revalidatePath("/busca");
+    revalidatePath("/leitura");
     revalidatePath("/produtos");
     revalidatePath("/fornecedores");
     revalidatePath("/movimentacoes");

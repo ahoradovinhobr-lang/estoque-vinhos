@@ -11,6 +11,11 @@ type ScanControls = {
 type CameraState = "idle" | "starting" | "scanning";
 type BarcodeSource = "input" | "camera";
 
+function looksLikeBarcode(value: string): boolean {
+  const normalized = value.replace(/\s+/g, "");
+  return /^\d{6,}$/.test(normalized);
+}
+
 function cameraErrorMessage(error: unknown): string {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError") {
@@ -29,13 +34,13 @@ function cameraErrorMessage(error: unknown): string {
   return "Nao foi possivel iniciar a camera.";
 }
 
-export function BarcodeReader({ initialCode }: { initialCode: string }) {
+export function BarcodeReader({ initialValue }: { initialValue: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<ScanControls | null>(null);
   const lastDecodedRef = useRef("");
-  const [code, setCode] = useState(initialCode);
+  const [term, setTerm] = useState(initialValue);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -50,14 +55,19 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
     focusInput();
   }
 
-  function goToCode(value: string, source: BarcodeSource) {
+  function goToValue(value: string, source: BarcodeSource) {
     const normalized = value.trim();
 
-    setCode(normalized);
+    setTerm(normalized);
 
     if (!normalized) {
       router.push("/leitura");
       focusInput();
+      return;
+    }
+
+    if (source === "input" && !looksLikeBarcode(normalized)) {
+      router.push(`/leitura?q=${encodeURIComponent(normalized)}`);
       return;
     }
 
@@ -104,7 +114,7 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
 
           lastDecodedRef.current = decoded;
           stopCamera();
-          goToCode(decoded, "camera");
+          goToValue(decoded, "camera");
         }
       );
 
@@ -120,9 +130,9 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
   }
 
   useEffect(() => {
-    setCode(initialCode);
+    setTerm(initialValue);
     focusInput();
-  }, [initialCode]);
+  }, [initialValue]);
 
   useEffect(() => {
     return () => {
@@ -137,21 +147,21 @@ export function BarcodeReader({ initialCode }: { initialCode: string }) {
         onSubmit={(event) => {
           event.preventDefault();
           stopCamera();
-          goToCode(code, "input");
+          goToValue(term, "input");
         }}
       >
         <label>
           <span className="mb-1 block text-sm font-medium text-stone-700">
-            Codigo de barras
+            Busca ou codigo de barras
           </span>
           <input
             ref={inputRef}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
             autoFocus
-            inputMode="numeric"
+            type="search"
             autoComplete="off"
-            placeholder="Escaneie ou digite o codigo"
+            placeholder="Nome, SKU, uva, pais, fornecedor ou codigo"
             className="h-11 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
           />
         </label>
