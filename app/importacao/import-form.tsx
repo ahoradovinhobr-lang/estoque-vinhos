@@ -9,8 +9,8 @@ import {
   type ImportActionState
 } from "./types";
 
-const exampleText = `sku\tname\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tquantity\tlocation_code\tnotes
-VIN-001\tVinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t789000000001\t6\tP-A-N1\tCarga inicial`;
+const exampleText = `sku\tname\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tcost_price\tsale_price\tphoto_url\tquantity\tlocation_code\tnotes
+VIN-001\tVinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t789000000001\t45,90\t79,90\thttps://example.com/vinho.jpg\t6\tP-A-N1\tCarga inicial`;
 
 function ResultSummary({ state }: { state: ImportActionState }) {
   if (!state.result) {

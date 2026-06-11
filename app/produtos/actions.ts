@@ -4,7 +4,9 @@ import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireActionPermission } from "@/lib/auth";
+import { parseMoneyInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalHttpUrl } from "@/lib/urls";
 import { ensureNoProductBalance } from "@/services/inventory.service";
 import { findOrCreateProductFamily } from "@/services/products.service";
 
@@ -20,6 +22,9 @@ export async function createProduct(formData: FormData) {
   const supplierId = String(formData.get("supplierId") ?? "").trim() || null;
   const vintage = String(formData.get("vintage") ?? "").trim();
   const barcode = String(formData.get("barcode") ?? "").trim();
+  const costPrice = parseMoneyInput(formData.get("costPrice"), "Valor de custo");
+  const salePrice = parseMoneyInput(formData.get("salePrice"), "Valor de venda");
+  const photoUrl = parseOptionalHttpUrl(formData.get("photoUrl"), "Foto");
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!sku) {
@@ -98,6 +103,9 @@ export async function createProduct(formData: FormData) {
       supplierId,
       vintage: vintage || null,
       barcode: barcode || null,
+      costPrice,
+      salePrice,
+      photoUrl,
       notes: notes || null
     }
   });

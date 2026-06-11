@@ -91,6 +91,8 @@ export async function GET(
       country: product.country,
       vintage: product.vintage,
       barcode: product.barcode,
+      salePrice: product.salePrice?.toString() ?? null,
+      photoUrl: product.photoUrl,
       supplier: product.supplier
         ? {
             id: product.supplier.id,

@@ -9,7 +9,9 @@ import {
 } from "@prisma/client";
 
 import { normalizeText, supplierKey } from "@/lib/normalize";
+import { parseMoneyInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalHttpUrl } from "@/lib/urls";
 
 type Tx = Prisma.TransactionClient;
 
@@ -24,6 +26,12 @@ type ParsedImportRow = {
   supplierName: string | null;
   vintage: string | null;
   barcode: string | null;
+  costPrice: Prisma.Decimal | null;
+  costPriceInvalid: boolean;
+  salePrice: Prisma.Decimal | null;
+  salePriceInvalid: boolean;
+  photoUrl: string | null;
+  photoUrlInvalid: boolean;
   quantity: number | null;
   locationCode: string;
   notes: string | null;
@@ -71,7 +79,16 @@ const requiredColumns = [
   "location_code"
 ];
 
-const optionalColumns = ["country", "supplier", "vintage", "barcode", "notes"];
+const optionalColumns = [
+  "country",
+  "supplier",
+  "vintage",
+  "barcode",
+  "cost_price",
+  "sale_price",
+  "photo_url",
+  "notes"
+];
 
 const serializable = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable
@@ -175,6 +192,42 @@ function parseQuantity(value: string): number | null {
 function optional(value: string): string | null {
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function optionalMoney(value: string): {
+  value: Prisma.Decimal | null;
+  invalid: boolean;
+} {
+  if (!value.trim()) {
+    return { value: null, invalid: false };
+  }
+
+  try {
+    return {
+      value: parseMoneyInput(value, "Valor"),
+      invalid: false
+    };
+  } catch {
+    return { value: null, invalid: true };
+  }
+}
+
+function optionalHttpUrl(value: string): {
+  value: string | null;
+  invalid: boolean;
+} {
+  if (!value.trim()) {
+    return { value: null, invalid: false };
+  }
+
+  try {
+    return {
+      value: parseOptionalHttpUrl(value, "Foto"),
+      invalid: false
+    };
+  } catch {
+    return { value: null, invalid: true };
+  }
 }
 
 function normalizeColumnName(value: string): string {
@@ -281,6 +334,9 @@ function parseRows(rawText: string): {
       values[header] = cells[cellIndex] ?? "";
       return values;
     }, {});
+    const costPrice = optionalMoney(rowValue(row, "cost_price"));
+    const salePrice = optionalMoney(rowValue(row, "sale_price"));
+    const photoUrl = optionalHttpUrl(rowValue(row, "photo_url"));
 
     return {
       rowNumber: index + 2,
@@ -293,6 +349,12 @@ function parseRows(rawText: string): {
       supplierName: optional(rowValue(row, "supplier")),
       vintage: optional(rowValue(row, "vintage")),
       barcode: optional(rowValue(row, "barcode")),
+      costPrice: costPrice.value,
+      costPriceInvalid: costPrice.invalid,
+      salePrice: salePrice.value,
+      salePriceInvalid: salePrice.invalid,
+      photoUrl: photoUrl.value,
+      photoUrlInvalid: photoUrl.invalid,
       quantity: parseQuantity(rowValue(row, "quantity")),
       locationCode: rowValue(row, "location_code").toUpperCase(),
       notes: optional(rowValue(row, "notes"))
@@ -407,6 +469,9 @@ async function validateImportRows(
     if (!row.grape) errors.push("Uva e obrigatoria.");
     if (!row.locationCode) errors.push("location_code e obrigatorio.");
     if (!row.quantity) errors.push("Quantidade deve ser inteiro maior que zero.");
+    if (row.costPriceInvalid) errors.push("cost_price deve ser valor monetario valido.");
+    if (row.salePriceInvalid) errors.push("sale_price deve ser valor monetario valido.");
+    if (row.photoUrlInvalid) errors.push("photo_url deve ser URL http ou https valida.");
 
     const skuLocationKey = `${row.sku}|${row.locationCode}`;
     const firstDuplicateRow = seenSkuLocation.get(skuLocationKey);
@@ -708,6 +773,9 @@ export async function applyInitialImport(input: {
                     supplierId: supplier.id
                   }
                 : {}),
+              costPrice: row.costPrice ?? undefined,
+              salePrice: row.salePrice ?? undefined,
+              photoUrl: row.photoUrl ?? undefined,
               notes: row.notes ?? undefined
             }
           })
@@ -723,6 +791,9 @@ export async function applyInitialImport(input: {
               supplierId: supplier?.id ?? null,
               vintage: row.vintage,
               barcode: row.barcode,
+              costPrice: row.costPrice,
+              salePrice: row.salePrice,
+              photoUrl: row.photoUrl,
               notes: row.notes
             }
           });

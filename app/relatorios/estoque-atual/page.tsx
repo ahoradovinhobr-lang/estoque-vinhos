@@ -3,6 +3,7 @@ import { BarChart3, Search } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
+import { formatCurrency, moneyToNumber } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -66,6 +67,14 @@ export default async function CurrentStockReportPage({
     };
   });
   const totalUnits = rows.reduce((sum, row) => sum + row.totalStock, 0);
+  const totalCostValue = rows.reduce(
+    (sum, row) => sum + row.totalStock * moneyToNumber(row.product.costPrice),
+    0
+  );
+  const totalSaleValue = rows.reduce(
+    (sum, row) => sum + row.totalStock * moneyToNumber(row.product.salePrice),
+    0
+  );
   const productsWithStock = rows.filter((row) => row.totalStock > 0).length;
 
   return (
@@ -85,7 +94,7 @@ export default async function CurrentStockReportPage({
         </Link>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-md border border-stone-200 bg-white p-4">
           <p className="text-sm text-stone-600">Unidades</p>
           <p className="mt-2 text-3xl font-semibold text-ink">{totalUnits}</p>
@@ -94,6 +103,18 @@ export default async function CurrentStockReportPage({
           <p className="text-sm text-stone-600">Produtos com saldo</p>
           <p className="mt-2 text-3xl font-semibold text-ink">
             {productsWithStock}
+          </p>
+        </div>
+        <div className="rounded-md border border-stone-200 bg-white p-4">
+          <p className="text-sm text-stone-600">Custo em estoque</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">
+            {formatCurrency(totalCostValue)}
+          </p>
+        </div>
+        <div className="rounded-md border border-stone-200 bg-white p-4">
+          <p className="text-sm text-stone-600">Venda potencial</p>
+          <p className="mt-2 text-2xl font-semibold text-ink">
+            {formatCurrency(totalSaleValue)}
           </p>
         </div>
         <div className="rounded-md border border-stone-200 bg-white p-4">
@@ -125,12 +146,13 @@ export default async function CurrentStockReportPage({
 
       <section className="mt-6 rounded-md border border-stone-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] border-collapse text-sm">
+          <table className="w-full min-w-[1320px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Produto</th>
                 <th className="px-4 py-3 font-medium">Caracteristicas</th>
                 <th className="px-4 py-3 font-medium">Fornecedor</th>
+                <th className="px-4 py-3 font-medium">Valores</th>
                 <th className="px-4 py-3 text-right font-medium">Total</th>
                 <th className="px-4 py-3 font-medium">Locais</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -141,7 +163,7 @@ export default async function CurrentStockReportPage({
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-stone-500"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     Nenhum produto encontrado.
                   </td>
@@ -181,6 +203,10 @@ export default async function CurrentStockReportPage({
                       </td>
                       <td className="px-4 py-3 text-stone-600">
                         {product.supplier?.name || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-stone-600">
+                        <p>Custo {formatCurrency(product.costPrice)}</p>
+                        <p>Venda {formatCurrency(product.salePrice)}</p>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-ink">
                         {totalStock}

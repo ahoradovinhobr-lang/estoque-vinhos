@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Barcode, Boxes, Wine } from "lucide-react";
+import { Barcode, Boxes, ImageIcon, Wine } from "lucide-react";
 import {
   BarcodeLookupSource,
   ProductType,
@@ -9,6 +9,7 @@ import {
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
+import { formatCurrency } from "@/lib/money";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@/services/barcode.service";
 
 import { BarcodeReader } from "./barcode-reader";
+import { GtinLookupPanel } from "./gtin-lookup-panel";
 import { QuickActionForms } from "./quick-action-forms";
 
 const productTypeLabels: Record<ProductType, string> = {
@@ -211,6 +213,12 @@ export default async function BarcodeReadingPage({
               </p>
             ) : null}
           </div>
+          {isBarcodeLookup ? (
+            <GtinLookupPanel
+              barcode={code}
+              canCreateProduct={canCreateProduct}
+            />
+          ) : null}
         </section>
       ) : (
         <section className="mt-6 space-y-3">
@@ -255,23 +263,43 @@ export default async function BarcodeReadingPage({
                 className="rounded-md border border-stone-200 bg-white p-4"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-ink">
-                        {product.name}
-                      </h3>
-                      <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
-                        {isActive ? "Ativo" : "Inativo"}
-                      </span>
+                  <div className="flex gap-3">
+                    {product.photoUrl ? (
+                      <img
+                        src={product.photoUrl}
+                        alt=""
+                        className="h-16 w-16 rounded-md border border-stone-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-400">
+                        <ImageIcon aria-hidden className="h-5 w-5" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-semibold text-ink">
+                          {product.name}
+                        </h3>
+                        <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
+                          {isActive ? "Ativo" : "Inativo"}
+                        </span>
+                      </div>
+                      <p className="mt-1 flex items-center gap-2 text-sm text-stone-600">
+                        <Wine aria-hidden className="h-4 w-4 text-cellar" />
+                        {characteristics}
+                      </p>
+                      <p className="mt-1 text-sm text-stone-500">
+                        SKU {product.sku}
+                        {product.barcode
+                          ? ` - Codigo ${product.barcode}`
+                          : ""}
+                      </p>
+                      {product.salePrice ? (
+                        <p className="mt-1 text-sm font-semibold text-cellar">
+                          Venda {formatCurrency(product.salePrice)}
+                        </p>
+                      ) : null}
                     </div>
-                    <p className="mt-1 flex items-center gap-2 text-sm text-stone-600">
-                      <Wine aria-hidden className="h-4 w-4 text-cellar" />
-                      {characteristics}
-                    </p>
-                    <p className="mt-1 text-sm text-stone-500">
-                      SKU {product.sku}
-                      {product.barcode ? ` - Codigo ${product.barcode}` : ""}
-                    </p>
                   </div>
                   <div className="rounded-md border border-stone-200 px-4 py-3 text-right">
                     <p className="text-xs font-medium uppercase tracking-normal text-stone-500">
