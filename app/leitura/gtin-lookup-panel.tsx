@@ -1,0 +1,138 @@
+"use client";
+
+import Link from "next/link";
+import { DatabaseZap, Loader2, Search } from "lucide-react";
+import { useState } from "react";
+
+import type { GtinLookupResult } from "@/services/gtin.service";
+
+type GtinLookupPanelProps = {
+  barcode: string;
+  canCreateProduct: boolean;
+};
+
+function productUrl(result: GtinLookupResult): string {
+  const params = new URLSearchParams({ barcode: result.gtin });
+
+  if (result.name) {
+    params.set("name", result.name);
+  }
+
+  if (result.country) {
+    params.set("country", result.country);
+  }
+
+  if (result.imageUrl) {
+    params.set("photoUrl", result.imageUrl);
+  }
+
+  return `/produtos?${params.toString()}`;
+}
+
+export function GtinLookupPanel({
+  barcode,
+  canCreateProduct
+}: GtinLookupPanelProps) {
+  const [result, setResult] = useState<GtinLookupResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function lookup() {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/barcodes/gtin/${encodeURIComponent(barcode)}`
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Falha ao consultar GTIN.");
+      }
+
+      setResult(data);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Falha ao consultar GTIN."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-md border border-stone-200 bg-stone-50 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <DatabaseZap aria-hidden className="h-4 w-4 text-cellar" />
+            Consulta GTIN
+          </p>
+          <p className="mt-1 text-sm text-stone-600">
+            Busca dados externos do codigo para acelerar o cadastro.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={lookup}
+          disabled={loading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? (
+            <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search aria-hidden className="h-4 w-4" />
+          )}
+          Consultar
+        </button>
+      </div>
+
+      {errorMessage ? (
+        <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {result ? (
+        <div className="mt-3 rounded-md border border-stone-200 bg-white p-3">
+          {result.status === "found" ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-3">
+                {result.imageUrl ? (
+                  <img
+                    src={result.imageUrl}
+                    alt=""
+                    className="h-14 w-14 rounded-md border border-stone-200 object-cover"
+                  />
+                ) : null}
+                <div>
+                  <p className="font-medium text-ink">
+                    {result.name ?? "Produto encontrado"}
+                  </p>
+                  <p className="text-sm text-stone-600">
+                    {[result.brand, result.country, result.provider]
+                      .filter(Boolean)
+                      .join(" - ")}
+                  </p>
+                </div>
+              </div>
+              {canCreateProduct ? (
+                <Link
+                  href={productUrl(result)}
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+                >
+                  Usar no cadastro
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-stone-600">
+              {result.message ?? "GTIN nao encontrado."}
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
