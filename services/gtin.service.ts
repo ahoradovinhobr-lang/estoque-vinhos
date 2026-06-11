@@ -15,6 +15,7 @@ export type GtinLookupResult = {
 type JsonRecord = Record<string, unknown>;
 
 const validGtinLengths = new Set([8, 12, 13, 14]);
+const defaultLookupTimeoutMs = 8000;
 
 export function normalizeGtin(value: string): string {
   return value.trim().replace(/\s+/g, "");
@@ -64,28 +65,47 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
-function openFoodFactsUrl(gtin: string): string {
-  return `https://world.openfoodfacts.org/api/v3.6/product/${encodeURIComponent(
-    gtin
-  )}.json`;
+function openFoodFactsUrls(gtin: string): string[] {
+  const encodedGtin = encodeURIComponent(gtin);
+
+  return [
+    `https://world.openfoodfacts.org/api/v3.6/product/${encodedGtin}.json`,
+    `https://world.openfoodfacts.org/api/v2/product/${encodedGtin}.json`
+  ];
 }
 
-function configuredProviderUrl(gtin: string): string {
+function configuredProviderUrls(gtin: string): string[] {
   const template = process.env.GTIN_LOOKUP_API_URL?.trim();
 
   if (!template) {
-    return openFoodFactsUrl(gtin);
+    return openFoodFactsUrls(gtin);
   }
 
   if (template.includes("{gtin}")) {
-    return template.replaceAll("{gtin}", encodeURIComponent(gtin));
+    return [template.replaceAll("{gtin}", encodeURIComponent(gtin))];
   }
 
-  return `${template.replace(/\/+$/, "")}/${encodeURIComponent(gtin)}`;
+  return [`${template.replace(/\/+$/, "")}/${encodeURIComponent(gtin)}`];
 }
 
 function providerName(): string {
   return process.env.GTIN_LOOKUP_PROVIDER?.trim() || "Open Food Facts";
+}
+
+function lookupTimeoutMs(): number {
+  const timeout = Number(process.env.GTIN_LOOKUP_TIMEOUT_MS);
+
+  return Number.isFinite(timeout) && timeout > 0
+    ? timeout
+    : defaultLookupTimeoutMs;
+}
+
+function connectionErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.name === "AbortError") {
+    return "Consulta GTIN excedeu o tempo limite. Tente novamente.";
+  }
+
+  return "Nao foi possivel conectar ao provedor GTIN. Tente novamente ou cadastre manualmente.";
 }
 
 function normalizeProviderResult(
@@ -162,50 +182,80 @@ export async function lookupGtin(gtinInput: string): Promise<GtinLookupResult> {
     };
   }
 
-  const sourceUrl = configuredProviderUrl(gtin);
+  const apiKey = process.env.GTIN_LOOKUP_API_KEY?.trim();
+  const urls = configuredProviderUrls(gtin);
+  let notFoundResult: GtinLookupResult | null = null;
+  let lastSourceUrl: string | null = null;
+  let lastErrorMessage =
+    "Falha ao consultar provedor GTIN. Tente novamente ou cadastre manualmente.";
 
-  try {
-    const apiKey = process.env.GTIN_LOOKUP_API_KEY?.trim();
-    const response = await fetch(sourceUrl, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        "User-Agent":
-          process.env.GTIN_LOOKUP_USER_AGENT ||
-          "EstoqueVinhos/0.1 (https://estoque-vinhos-production.up.railway.app)"
+  for (const sourceUrl of urls) {
+    lastSourceUrl = sourceUrl;
+
+    try {
+      const abortController = new AbortController();
+      const timeout = setTimeout(
+        () => abortController.abort(),
+        lookupTimeoutMs()
+      );
+
+      const response = await fetch(sourceUrl, {
+        cache: "no-store",
+        signal: abortController.signal,
+        headers: {
+          Accept: "application/json",
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          "User-Agent":
+            process.env.GTIN_LOOKUP_USER_AGENT ||
+            "EstoqueVinhos/0.1 (https://estoque-vinhos-production.up.railway.app)"
+        }
+      }).finally(() => clearTimeout(timeout));
+
+      if (!response.ok) {
+        const status = response.status === 404 ? "not_found" : "error";
+        const result: GtinLookupResult = {
+          gtin,
+          status,
+          provider,
+          sourceUrl,
+          name: null,
+          brand: null,
+          country: null,
+          imageUrl: null,
+          message:
+            status === "not_found"
+              ? "Produto nao encontrado no provedor GTIN."
+              : `Provedor GTIN respondeu HTTP ${response.status}.`
+        };
+
+        if (status === "not_found") {
+          notFoundResult = result;
+          continue;
+        }
+
+        lastErrorMessage = result.message ?? lastErrorMessage;
+        continue;
       }
-    });
 
-    if (!response.ok) {
-      return {
-        gtin,
-        status: response.status === 404 ? "not_found" : "error",
-        provider,
-        sourceUrl,
-        name: null,
-        brand: null,
-        country: null,
-        imageUrl: null,
-        message: `Provedor GTIN respondeu HTTP ${response.status}.`
-      };
+      return normalizeProviderResult(gtin, provider, sourceUrl, await response.json());
+    } catch (error) {
+      lastErrorMessage = connectionErrorMessage(error);
     }
-
-    return normalizeProviderResult(gtin, provider, sourceUrl, await response.json());
-  } catch (error) {
-    return {
-      gtin,
-      status: "error",
-      provider,
-      sourceUrl,
-      name: null,
-      brand: null,
-      country: null,
-      imageUrl: null,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Falha ao consultar provedor GTIN."
-    };
   }
+
+  if (notFoundResult) {
+    return notFoundResult;
+  }
+
+  return {
+    gtin,
+    status: "error",
+    provider,
+    sourceUrl: lastSourceUrl,
+    name: null,
+    brand: null,
+    country: null,
+    imageUrl: null,
+    message: lastErrorMessage
+  };
 }
