@@ -37,9 +37,10 @@ describe("lookupGtin", () => {
         Response.json({
           status: "success",
           product: {
-            product_name: "Produto teste",
+            product_name: "Vinho Tinto Cabernet Sauvignon 2020",
             brands: "Marca teste",
-            countries: "Brasil",
+            categories_tags: ["en:wines", "en:red-wines"],
+            countries_tags: ["en:chile"],
             image_url: "https://example.com/foto.jpg"
           }
         })
@@ -51,9 +52,13 @@ describe("lookupGtin", () => {
 
     expect(result).toMatchObject({
       status: "found",
-      name: "Produto teste",
+      name: "Vinho Tinto Cabernet Sauvignon 2020",
       brand: "Marca teste",
-      country: "Brasil",
+      country: "Chile",
+      productType: "WINE",
+      wineColor: "RED",
+      grape: "Cabernet Sauvignon",
+      vintage: "2020",
       imageUrl: "https://example.com/foto.jpg"
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -71,5 +76,30 @@ describe("lookupGtin", () => {
     expect(result.status).toBe("error");
     expect(result.message).toContain("Nao foi possivel conectar");
     expect(result.message).not.toContain("fetch failed");
+  });
+
+  it("infers sparkling wine fields from provider text", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        status: "success",
+        product: {
+          product_name: "Espumante Brut Rose Pinot Noir",
+          categories: "Sparkling wines",
+          countries: "Brazil"
+        }
+      })
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await lookupGtin("4006381333931");
+
+    expect(result).toMatchObject({
+      status: "found",
+      country: "Brasil",
+      productType: "SPARKLING",
+      wineColor: "ROSE",
+      grape: "Pinot Noir"
+    });
   });
 });

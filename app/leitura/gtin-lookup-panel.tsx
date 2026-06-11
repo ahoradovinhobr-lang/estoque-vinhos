@@ -26,7 +26,48 @@ function productUrl(result: GtinLookupResult): string {
     params.set("photoUrl", result.imageUrl);
   }
 
+  if (result.productType) {
+    params.set("type", result.productType);
+  }
+
+  if (result.wineColor) {
+    params.set("wineColor", result.wineColor);
+  }
+
+  if (result.grape) {
+    params.set("grape", result.grape);
+  }
+
+  if (result.vintage) {
+    params.set("vintage", result.vintage);
+  }
+
   return `/produtos?${params.toString()}`;
+}
+
+const productTypeLabels: Record<NonNullable<GtinLookupResult["productType"]>, string> = {
+  WINE: "Vinho",
+  SPARKLING: "Espumante"
+};
+
+const wineColorLabels: Record<NonNullable<GtinLookupResult["wineColor"]>, string> = {
+  RED: "Tinto",
+  WHITE: "Branco",
+  ROSE: "Rose"
+};
+
+function resultDetails(result: GtinLookupResult): string {
+  return [
+    result.brand,
+    result.country,
+    result.productType ? productTypeLabels[result.productType] : null,
+    result.wineColor ? wineColorLabels[result.wineColor] : null,
+    result.grape ? `Uva ${result.grape}` : null,
+    result.vintage ? `Safra ${result.vintage}` : null,
+    result.provider
+  ]
+    .filter(Boolean)
+    .join(" - ");
 }
 
 function responseErrorMessage(data: unknown): string {
@@ -136,9 +177,7 @@ export function GtinLookupPanel({
                     {result.name ?? "Produto encontrado"}
                   </p>
                   <p className="text-sm text-stone-600">
-                    {[result.brand, result.country, result.provider]
-                      .filter(Boolean)
-                      .join(" - ")}
+                    {resultDetails(result)}
                   </p>
                 </div>
               </div>
