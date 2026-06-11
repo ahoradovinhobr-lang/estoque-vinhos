@@ -29,10 +29,23 @@ type ProductsPageProps = {
   searchParams?: Promise<{
     barcode?: string;
     country?: string;
+    grape?: string;
     name?: string;
     photoUrl?: string;
+    type?: string;
+    vintage?: string;
+    wineColor?: string;
   }>;
 };
+
+function enumParam<T extends string>(
+  value: string | undefined,
+  allowedValues: T[]
+): T | "" {
+  const candidate = String(value ?? "").trim();
+
+  return allowedValues.includes(candidate as T) ? (candidate as T) : "";
+}
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   await requirePagePermission("products:write");
@@ -42,6 +55,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const initialName = String(params?.name ?? "").trim();
   const initialCountry = String(params?.country ?? "").trim();
   const initialPhotoUrl = String(params?.photoUrl ?? "").trim();
+  const initialGrape = String(params?.grape ?? "").trim();
+  const initialVintage = String(params?.vintage ?? "").trim();
+  const initialType = enumParam(params?.type, Object.values(ProductType));
+  const initialWineColor = enumParam(
+    params?.wineColor,
+    Object.values(WineColor)
+  );
 
   const [products, suppliers] = await Promise.all([
     prisma.product.findMany({
@@ -97,7 +117,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             <select
               name="type"
               required
-              defaultValue=""
+              defaultValue={initialType}
               className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             >
               <option value="" disabled>
@@ -117,7 +137,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             <select
               name="wineColor"
               required
-              defaultValue=""
+              defaultValue={initialWineColor}
               className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             >
               <option value="" disabled>
@@ -147,6 +167,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </span>
             <input
               name="vintage"
+              defaultValue={initialVintage}
               placeholder="2020"
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
@@ -175,6 +196,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             <input
               name="grape"
               required
+              defaultValue={initialGrape}
               placeholder="Cabernet Sauvignon"
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
