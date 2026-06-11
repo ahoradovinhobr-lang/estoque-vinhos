@@ -29,6 +29,31 @@ function productUrl(result: GtinLookupResult): string {
   return `/produtos?${params.toString()}`;
 }
 
+function responseErrorMessage(data: unknown): string {
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
+    return data.error;
+  }
+
+  return "Falha ao consultar GTIN.";
+}
+
+function resultMessageClassName(status: GtinLookupResult["status"]): string {
+  if (status === "error") {
+    return "text-red-700";
+  }
+
+  if (status === "invalid") {
+    return "text-amber-700";
+  }
+
+  return "text-stone-600";
+}
+
 export function GtinLookupPanel({
   barcode,
   canCreateProduct
@@ -45,13 +70,13 @@ export function GtinLookupPanel({
       const response = await fetch(
         `/api/barcodes/gtin/${encodeURIComponent(barcode)}`
       );
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Falha ao consultar GTIN.");
+        throw new Error(responseErrorMessage(data));
       }
 
-      setResult(data);
+      setResult(data as GtinLookupResult);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Falha ao consultar GTIN."
@@ -127,7 +152,7 @@ export function GtinLookupPanel({
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-stone-600">
+            <p className={`text-sm ${resultMessageClassName(result.status)}`}>
               {result.message ?? "GTIN nao encontrado."}
             </p>
           )}
