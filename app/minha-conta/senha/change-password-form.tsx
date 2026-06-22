@@ -65,7 +65,7 @@ export function ChangePasswordForm() {
       ) : null}
       <button
         disabled={isPending}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733] disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark disabled:cursor-not-allowed disabled:opacity-60"
       >
         <KeyRound aria-hidden className="h-4 w-4" />
         {isPending ? "Alterando..." : "Alterar senha"}

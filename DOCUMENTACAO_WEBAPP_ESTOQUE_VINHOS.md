@@ -71,6 +71,7 @@ Permissoes:
 - Realizar inventarios.
 - Visualizar relatorios.
 - Gerenciar usuarios.
+- Executar importacao inicial ou importacoes em massa.
 
 ### 4.2 Operador de Estoque
 
@@ -83,6 +84,7 @@ Permissoes:
 - Transferir produtos entre locais.
 - Realizar inventario.
 - Visualizar historico operacional.
+- Nao executa importacao em massa.
 
 ### 4.3 Consulta
 

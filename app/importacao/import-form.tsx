@@ -9,8 +9,8 @@ import {
   type ImportActionState
 } from "./types";
 
-const exampleText = `sku\tname\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tcost_price\tsale_price\tphoto_url\tquantity\tlocation_code\tnotes
-VIN-001\tVinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t789000000001\t45,90\t79,90\thttps://example.com/vinho.jpg\t6\tP-A-N1\tCarga inicial`;
+const exampleText = `sku\tname\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tsale_price\tphoto_url\tquantity\tlocation_code\tnotes
+VIN-001\tVinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t789000000001\t79,90\thttps://example.com/vinho.jpg\t6\tP-A-N1\tCarga inicial`;
 
 function ResultSummary({ state }: { state: ImportActionState }) {
   if (!state.result) {
@@ -182,7 +182,7 @@ export function ImportForm() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               disabled={isSimulating}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileText aria-hidden className="h-4 w-4" />
               {isSimulating ? "Simulando..." : "Simular importacao"}
@@ -219,7 +219,7 @@ export function ImportForm() {
             />
             <button
               disabled={!canApply}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Upload aria-hidden className="h-4 w-4" />
               {isApplying ? "Aplicando..." : "Aplicar importacao definitiva"}

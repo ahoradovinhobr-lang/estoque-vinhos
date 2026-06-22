@@ -22,6 +22,7 @@ import {
 import { useState } from "react";
 
 import { logoutAction } from "@/app/login/actions";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import type {
   IconKey,
   MobileNavigationItem
@@ -57,14 +58,12 @@ export function MobileNavigation({
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-stone-200 bg-white px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-stone-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-cellar">
-              Estoque Vinhos
-            </p>
-            <p className="mt-1 text-sm font-semibold text-ink">
-              Controle operacional
+          <div className="min-w-0">
+            <BrandLogo className="h-auto w-40 max-w-full" />
+            <p className="mt-1 text-xs font-semibold text-cellarDark">
+              Estoque operacional
             </p>
           </div>
           <button
@@ -93,12 +92,10 @@ export function MobileNavigation({
           />
           <aside className="relative flex h-full w-[min(20rem,85vw)] flex-col border-r border-stone-200 bg-white px-4 py-5 shadow-xl">
             <div className="mb-5 flex shrink-0 items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-normal text-cellar">
-                  Estoque Vinhos
-                </p>
-                <h1 className="mt-2 text-xl font-semibold text-ink">
-                  Controle operacional
+              <div className="min-w-0">
+                <BrandLogo className="h-auto w-44 max-w-full" />
+                <h1 className="mt-3 text-lg font-semibold text-cellarDark">
+                  Estoque operacional
                 </h1>
               </div>
               <button
@@ -119,16 +116,16 @@ export function MobileNavigation({
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+                    className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-stone-700 hover:bg-blush hover:text-cellarDark"
                   >
-                    <Icon aria-hidden className="h-4 w-4" />
+                    <Icon aria-hidden className="h-4 w-4 text-cellar" />
                     {item.label}
                   </Link>
                 );
               })}
             </nav>
 
-            <div className="mt-5 shrink-0 rounded-md border border-stone-200 bg-stone-50 p-3">
+            <div className="mt-5 shrink-0 rounded-md border border-blush bg-stone-50 p-3">
               <p className="text-sm font-semibold text-ink">{userName}</p>
               <p className="mt-1 text-xs text-stone-500">
                 {userRoleLabel}

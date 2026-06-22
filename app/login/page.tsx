@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 import { ensureBootstrapAdmin } from "@/services/users.service";
 
@@ -18,10 +19,15 @@ export default async function LoginPage() {
   const bootstrap = await ensureBootstrapAdmin();
 
   return (
-    <main className="min-h-screen bg-paper px-4 py-10">
-      <section className="mx-auto w-full max-w-md rounded-md border border-stone-200 bg-white p-6">
-        <p className="text-sm font-medium text-cellar">Estoque Vinhos</p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">
+    <main className="flex min-h-screen items-center bg-paper px-4 py-10">
+      <section className="mx-auto w-full max-w-md rounded-md border border-stone-200 bg-white p-6 shadow-sm">
+        <div className="border-b border-stone-200 pb-5">
+          <BrandLogo className="h-auto w-64 max-w-full" />
+          <p className="mt-3 text-sm font-semibold text-cellarDark">
+            Controle de estoque
+          </p>
+        </div>
+        <h1 className="mt-5 text-2xl font-semibold text-ink">
           Acesso operacional
         </h1>
         <p className="mt-2 text-sm text-stone-600">

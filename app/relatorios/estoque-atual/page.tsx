@@ -67,10 +67,6 @@ export default async function CurrentStockReportPage({
     };
   });
   const totalUnits = rows.reduce((sum, row) => sum + row.totalStock, 0);
-  const totalCostValue = rows.reduce(
-    (sum, row) => sum + row.totalStock * moneyToNumber(row.product.costPrice),
-    0
-  );
   const totalSaleValue = rows.reduce(
     (sum, row) => sum + row.totalStock * moneyToNumber(row.product.salePrice),
     0
@@ -94,7 +90,7 @@ export default async function CurrentStockReportPage({
         </Link>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-md border border-stone-200 bg-white p-4">
           <p className="text-sm text-stone-600">Unidades</p>
           <p className="mt-2 text-3xl font-semibold text-ink">{totalUnits}</p>
@@ -103,12 +99,6 @@ export default async function CurrentStockReportPage({
           <p className="text-sm text-stone-600">Produtos com saldo</p>
           <p className="mt-2 text-3xl font-semibold text-ink">
             {productsWithStock}
-          </p>
-        </div>
-        <div className="rounded-md border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-600">Custo em estoque</p>
-          <p className="mt-2 text-2xl font-semibold text-ink">
-            {formatCurrency(totalCostValue)}
           </p>
         </div>
         <div className="rounded-md border border-stone-200 bg-white p-4">
@@ -137,7 +127,7 @@ export default async function CurrentStockReportPage({
               className="h-10 w-full rounded-md border border-stone-300 pl-10 pr-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
           </div>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
             <BarChart3 aria-hidden className="h-4 w-4" />
             Filtrar
           </button>
@@ -152,7 +142,7 @@ export default async function CurrentStockReportPage({
                 <th className="px-4 py-3 font-medium">Produto</th>
                 <th className="px-4 py-3 font-medium">Caracteristicas</th>
                 <th className="px-4 py-3 font-medium">Fornecedor</th>
-                <th className="px-4 py-3 font-medium">Valores</th>
+                <th className="px-4 py-3 font-medium">Venda</th>
                 <th className="px-4 py-3 text-right font-medium">Total</th>
                 <th className="px-4 py-3 font-medium">Locais</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -205,8 +195,7 @@ export default async function CurrentStockReportPage({
                         {product.supplier?.name || "-"}
                       </td>
                       <td className="px-4 py-3 text-stone-600">
-                        <p>Custo {formatCurrency(product.costPrice)}</p>
-                        <p>Venda {formatCurrency(product.salePrice)}</p>
+                        {formatCurrency(product.salePrice)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-ink">
                         {totalStock}

@@ -3,9 +3,9 @@ import { RecordStatus, SecurityEventType, UserRole } from "@prisma/client";
 
 import { validatePasswordPolicy } from "@/lib/password-policy";
 import { prisma } from "@/lib/prisma";
+import { SYSTEM_USER_EMAIL } from "@/lib/system-user";
 import { recordSecurityEvent } from "@/services/security-events.service";
 
-const SYSTEM_USER_EMAIL = "operador@estoque.local";
 export const LOGIN_LOCK_THRESHOLD = 5;
 export const LOGIN_LOCK_MINUTES = 15;
 

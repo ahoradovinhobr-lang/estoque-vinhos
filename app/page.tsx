@@ -134,14 +134,14 @@ export default async function DashboardPage() {
     <AppShell>
       <header className="mb-6 flex flex-col gap-4 border-b border-stone-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-cellar">MVP operacional</p>
+          <p className="text-sm font-medium text-cellar">A Hora do Vinho</p>
           <h2 className="mt-1 text-2xl font-semibold text-ink">
             Dashboard de estoque
           </h2>
         </div>
         <Link
           href="/leitura"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
         >
           <Search aria-hidden className="h-4 w-4" />
           Buscar ou ler vinho

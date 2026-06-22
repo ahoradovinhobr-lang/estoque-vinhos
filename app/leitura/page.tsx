@@ -45,9 +45,13 @@ type BarcodeReadingPageProps = {
     codigo?: string;
     q?: string;
     fonte?: string;
+    modo?: string;
     sucesso?: string;
   }>;
 };
+
+type ProductOperationalState = "in_stock" | "zero" | "inactive";
+type ReadingMode = "padrao" | "balcao";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +99,144 @@ async function searchProducts(query: string): Promise<BarcodeLookupProduct[]> {
   });
 }
 
+function totalStock(product: BarcodeLookupProduct): number {
+  return product.balances.reduce((sum, balance) => sum + balance.quantity, 0);
+}
+
+function stockLocationsForProduct(product: BarcodeLookupProduct) {
+  return product.balances
+    .filter((balance) => balance.quantity > 0)
+    .sort((first, second) =>
+      first.storageLocation.code.localeCompare(second.storageLocation.code)
+    );
+}
+
+function productOperationalState(
+  product: BarcodeLookupProduct,
+  productTotalStock: number
+): ProductOperationalState {
+  if (product.status !== RecordStatus.ACTIVE) {
+    return "inactive";
+  }
+
+  return productTotalStock > 0 ? "in_stock" : "zero";
+}
+
+function productStateLabel(state: ProductOperationalState): string {
+  const labels: Record<ProductOperationalState, string> = {
+    in_stock: "Em estoque",
+    zero: "Zerado",
+    inactive: "Inativo"
+  };
+
+  return labels[state];
+}
+
+function productStateClassName(state: ProductOperationalState): string {
+  const classes: Record<ProductOperationalState, string> = {
+    in_stock: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    zero: "bg-stone-100 text-stone-700 border-stone-200",
+    inactive: "bg-amber-50 text-amber-800 border-amber-200"
+  };
+
+  return classes[state];
+}
+
+function productCardClassName(state: ProductOperationalState): string {
+  const classes: Record<ProductOperationalState, string> = {
+    in_stock: "border-stone-200",
+    zero: "border-stone-200 opacity-90",
+    inactive: "border-amber-200 bg-amber-50/30"
+  };
+
+  return classes[state];
+}
+
+function productSortRank(product: BarcodeLookupProduct): number {
+  const productTotalStock = totalStock(product);
+
+  if (product.status === RecordStatus.ACTIVE && productTotalStock > 0) {
+    return 0;
+  }
+
+  if (product.status === RecordStatus.ACTIVE) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function sortProductsByOperationalPriority(
+  products: BarcodeLookupProduct[]
+): BarcodeLookupProduct[] {
+  return [...products].sort((first, second) => {
+    const rankDifference = productSortRank(first) - productSortRank(second);
+
+    if (rankDifference !== 0) {
+      return rankDifference;
+    }
+
+    const stockDifference = totalStock(second) - totalStock(first);
+
+    if (stockDifference !== 0) {
+      return stockDifference;
+    }
+
+    return first.name.localeCompare(second.name);
+  });
+}
+
+function productSummary(products: BarcodeLookupProduct[]) {
+  return products.reduce(
+    (summary, product) => {
+      const state = productOperationalState(product, totalStock(product));
+
+      if (state === "in_stock") {
+        summary.withStock += 1;
+      } else if (state === "zero") {
+        summary.zero += 1;
+      } else {
+        summary.inactive += 1;
+      }
+
+      return summary;
+    },
+    { withStock: 0, zero: 0, inactive: 0 }
+  );
+}
+
+function readingModeHref({
+  code,
+  query,
+  mode
+}: {
+  code: string;
+  query: string;
+  mode: ReadingMode;
+}): string {
+  const searchParams = new URLSearchParams();
+
+  if (code) {
+    searchParams.set("codigo", code);
+  } else if (query) {
+    searchParams.set("q", query);
+  }
+
+  if (mode === "balcao") {
+    searchParams.set("modo", "balcao");
+  }
+
+  const queryString = searchParams.toString();
+
+  return queryString ? `/leitura?${queryString}` : "/leitura";
+}
+
+function modeLinkClassName(active: boolean): string {
+  return active
+    ? "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-cellar px-3 text-sm font-semibold text-white"
+    : "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50";
+}
+
 export default async function BarcodeReadingPage({
   searchParams
 }: BarcodeReadingPageProps) {
@@ -104,6 +246,8 @@ export default async function BarcodeReadingPage({
   const query = String(params?.q ?? "").trim();
   const searchValue = code || query;
   const isBarcodeLookup = Boolean(code);
+  const readingMode: ReadingMode = params?.modo === "balcao" ? "balcao" : "padrao";
+  const isCounterMode = readingMode === "balcao";
   const successKey = String(params?.sucesso ?? "");
   const successMessage =
     successKey in successLabels
@@ -120,11 +264,13 @@ export default async function BarcodeReadingPage({
         shouldRegisterLookup: !successMessage
       })
     : null;
-  const products = barcodeLookup
+  const rawProducts = barcodeLookup
     ? barcodeLookup.products
     : query
       ? await searchProducts(query)
       : [];
+  const products = sortProductsByOperationalPriority(rawProducts);
+  const summary = productSummary(products);
   const [activeLocations, activeSuppliers] =
     products.length > 0 && (canWriteStock || canAuditInventory)
       ? await Promise.all([
@@ -157,7 +303,24 @@ export default async function BarcodeReadingPage({
         </h2>
       </header>
 
-      <BarcodeReader initialValue={searchValue} />
+      <BarcodeReader initialValue={searchValue} mode={readingMode} />
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href={readingModeHref({ code, query, mode: "padrao" })}
+          className={modeLinkClassName(!isCounterMode)}
+        >
+          <Boxes aria-hidden className="h-4 w-4" />
+          Padrao
+        </Link>
+        <Link
+          href={readingModeHref({ code, query, mode: "balcao" })}
+          className={modeLinkClassName(isCounterMode)}
+        >
+          <Barcode aria-hidden className="h-4 w-4" />
+          Balcao
+        </Link>
+      </div>
 
       {successMessage ? (
         <section className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
@@ -202,7 +365,7 @@ export default async function BarcodeReadingPage({
             {isBarcodeLookup && canCreateProduct ? (
               <Link
                 href={`/produtos?barcode=${encodeURIComponent(code)}`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
               >
                 <Barcode aria-hidden className="h-4 w-4" />
                 Cadastrar produto
@@ -222,28 +385,61 @@ export default async function BarcodeReadingPage({
         </section>
       ) : (
         <section className="mt-6 space-y-3">
-          {!isBarcodeLookup ? (
-            <div className="rounded-md border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
-              {products.length} resultado(s) para &quot;{query}&quot;.
+          <div className="rounded-md border border-stone-200 bg-white px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <p className="text-sm font-medium text-ink">
+                {isBarcodeLookup
+                  ? `Resultado para codigo ${code}`
+                  : `${products.length} resultado(s) para "${query}"`}
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs font-medium">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
+                  {summary.withStock} com estoque
+                </span>
+                <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-1 text-stone-700">
+                  {summary.zero} zerado(s)
+                </span>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
+                  {summary.inactive} inativo(s)
+                </span>
+              </div>
             </div>
-          ) : products.length > 1 ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Mais de um produto usa este codigo. Confirme SKU e safra antes da
-              movimentacao.
+          </div>
+
+          {isBarcodeLookup && products.length > 1 ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-semibold">
+                Mais de um produto usa este codigo.
+              </p>
+              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                {products.map((product) => (
+                  <div
+                    key={product.id}
+                    className="rounded-md border border-amber-200 bg-white px-3 py-2"
+                  >
+                    <p className="font-medium text-ink">{product.name}</p>
+                    <p className="mt-1 text-xs text-stone-600">
+                      SKU {product.sku}
+                      {product.vintage ? ` - Safra ${product.vintage}` : ""}
+                      {product.supplier?.name
+                        ? ` - ${product.supplier.name}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-cellar">
+                      Saldo {totalStock(product)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 
           {products.map((product) => {
-            const balancesWithStock = product.balances
-              .filter((balance) => balance.quantity > 0)
-              .sort((first, second) =>
-                first.storageLocation.code.localeCompare(
-                  second.storageLocation.code
-                )
-              );
-            const totalStock = product.balances.reduce(
-              (sum, balance) => sum + balance.quantity,
-              0
+            const stockLocations = stockLocationsForProduct(product);
+            const productTotalStock = totalStock(product);
+            const operationalState = productOperationalState(
+              product,
+              productTotalStock
             );
             const characteristics = [
               productTypeLabels[product.type],
@@ -256,11 +452,14 @@ export default async function BarcodeReadingPage({
               .filter((item): item is string => Boolean(item))
               .join(" - ");
             const isActive = product.status === RecordStatus.ACTIVE;
+            const isExpandedResult = isBarcodeLookup || isCounterMode;
 
             return (
               <article
                 key={product.id}
-                className="rounded-md border border-stone-200 bg-white p-4"
+                className={`rounded-md border bg-white p-4 ${productCardClassName(
+                  operationalState
+                )}`}
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex gap-3">
@@ -268,45 +467,79 @@ export default async function BarcodeReadingPage({
                       <img
                         src={product.photoUrl}
                         alt=""
-                        className="h-16 w-16 rounded-md border border-stone-200 object-cover"
+                        className={
+                          isCounterMode
+                            ? "h-20 w-20 rounded-md border border-stone-200 object-cover"
+                            : "h-16 w-16 rounded-md border border-stone-200 object-cover"
+                        }
                       />
                     ) : (
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-400">
+                      <div
+                        className={
+                          isCounterMode
+                            ? "flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-400"
+                            : "flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-400"
+                        }
+                      >
                         <ImageIcon aria-hidden className="h-5 w-5" />
                       </div>
                     )}
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-ink">
+                        <h3
+                          className={
+                            isCounterMode
+                              ? "text-xl font-semibold text-ink"
+                              : "text-lg font-semibold text-ink"
+                          }
+                        >
                           {product.name}
                         </h3>
-                        <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
-                          {isActive ? "Ativo" : "Inativo"}
+                        <span
+                          className={`rounded-full border px-2 py-1 text-xs font-medium ${productStateClassName(
+                            operationalState
+                          )}`}
+                        >
+                          {productStateLabel(operationalState)}
                         </span>
                       </div>
                       <p className="mt-1 flex items-center gap-2 text-sm text-stone-600">
                         <Wine aria-hidden className="h-4 w-4 text-cellar" />
                         {characteristics}
                       </p>
-                      <p className="mt-1 text-sm text-stone-500">
-                        SKU {product.sku}
-                        {product.barcode
-                          ? ` - Codigo ${product.barcode}`
-                          : ""}
-                      </p>
-                      {product.salePrice ? (
+                      {!isCounterMode ? (
+                        <p className="mt-1 text-sm text-stone-500">
+                          SKU {product.sku}
+                          {product.barcode
+                            ? ` - Codigo ${product.barcode}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {product.salePrice && !isCounterMode ? (
                         <p className="mt-1 text-sm font-semibold text-cellar">
                           Venda {formatCurrency(product.salePrice)}
                         </p>
                       ) : null}
                     </div>
                   </div>
-                  <div className="rounded-md border border-stone-200 px-4 py-3 text-right">
+                  <div
+                    className={
+                      isCounterMode
+                        ? "rounded-md border border-cellar/20 bg-blush px-5 py-4 text-left lg:text-right"
+                        : "rounded-md border border-stone-200 px-4 py-3 text-right"
+                    }
+                  >
                     <p className="text-xs font-medium uppercase tracking-normal text-stone-500">
                       Saldo total
                     </p>
-                    <p className="mt-1 text-2xl font-semibold text-ink">
-                      {totalStock}
+                    <p
+                      className={
+                        isCounterMode
+                          ? "mt-1 text-4xl font-semibold text-cellarDark"
+                          : "mt-1 text-2xl font-semibold text-ink"
+                      }
+                    >
+                      {productTotalStock}
                     </p>
                   </div>
                 </div>
@@ -315,26 +548,48 @@ export default async function BarcodeReadingPage({
                   <div>
                     <p className="mb-2 flex items-center gap-2 text-sm font-medium text-stone-700">
                       <Boxes aria-hidden className="h-4 w-4 text-cellar" />
-                      Locais com saldo
+                      Onde encontrar
                     </p>
-                    {balancesWithStock.length === 0 ? (
+                    {stockLocations.length === 0 ? (
                       <p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">
                         Nenhuma unidade em local de estoque.
                       </p>
                     ) : (
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {balancesWithStock.map((balance) => (
+                      <div
+                        className={
+                          isCounterMode
+                            ? "grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
+                            : "flex flex-wrap gap-2"
+                        }
+                      >
+                        {stockLocations.map((balance) => (
                           <div
                             key={balance.id}
-                            className="rounded-md border border-stone-200 px-3 py-2"
+                            className={
+                              isCounterMode
+                                ? "rounded-md border border-cellar/20 bg-blush px-4 py-3"
+                                : "rounded-md border border-stone-200 px-3 py-2"
+                            }
                           >
-                            <p className="font-medium text-ink">
+                            <p
+                              className={
+                                isCounterMode
+                                  ? "text-lg font-semibold text-ink"
+                                  : "font-medium text-ink"
+                              }
+                            >
                               {balance.storageLocation.code}
                             </p>
                             <p className="text-sm text-stone-500">
                               {balance.storageLocation.name}
                             </p>
-                            <p className="mt-1 text-sm font-semibold text-cellar">
+                            <p
+                              className={
+                                isCounterMode
+                                  ? "mt-1 text-2xl font-semibold text-cellar"
+                                  : "mt-1 text-sm font-semibold text-cellar"
+                              }
+                            >
                               {balance.quantity} unidades
                             </p>
                           </div>
@@ -344,16 +599,20 @@ export default async function BarcodeReadingPage({
                   </div>
 
                   {isActive ? (
-                    <QuickActionForms
-                      product={product}
-                      returnBarcode={isBarcodeLookup ? code : undefined}
-                      returnQuery={!isBarcodeLookup ? query : undefined}
-                      balancesWithStock={balancesWithStock}
-                      activeLocations={activeLocations}
-                      activeSuppliers={activeSuppliers}
-                      canWriteStock={canWriteStock}
-                      canAuditInventory={canAuditInventory}
-                    />
+                    isExpandedResult ? (
+                      <QuickActionForms
+                        product={product}
+                        returnBarcode={isBarcodeLookup ? code : undefined}
+                        returnQuery={!isBarcodeLookup ? query : undefined}
+                        returnMode={isCounterMode ? "balcao" : undefined}
+                        counterMode={isCounterMode}
+                        balancesWithStock={stockLocations}
+                        activeLocations={activeLocations}
+                        activeSuppliers={activeSuppliers}
+                        canWriteStock={canWriteStock}
+                        canAuditInventory={canAuditInventory}
+                      />
+                    ) : null
                   ) : (
                     <p className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">
                       Produto inativo.

@@ -1,5 +1,7 @@
 .next/
 node_modules/
+.pnpm-store/
+.tools/
 dist/
 coverage/
 .env

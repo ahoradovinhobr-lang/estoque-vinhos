@@ -31,8 +31,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "stock:read",
     "stock:write",
     "inventory:audit",
-    "reports:read",
-    "imports:write"
+    "reports:read"
   ],
   [UserRole.CONSULTA]: ["stock:read"]
 };

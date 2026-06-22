@@ -56,7 +56,7 @@ export default async function ImportPage() {
             <p className="mt-1 text-sm text-stone-600">
               Cole dados CSV, TSV ou conteudo copiado de planilha com as colunas:
               sku, name, type, wine_color, grape, country, supplier, vintage,
-              barcode, cost_price, sale_price, photo_url, quantity,
+              barcode, sale_price, photo_url, quantity,
               location_code e notes.
             </p>
           </div>

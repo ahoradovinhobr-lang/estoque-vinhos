@@ -49,6 +49,7 @@ O arquivo `railway.json` define:
 ```text
 Build: npm run build
 Start: npm run start:migrate
+Healthcheck: /api/health
 ```
 
 O script `start:migrate` executa:
@@ -59,6 +60,9 @@ prisma migrate deploy && next start
 
 Assim, as migrations sao aplicadas antes do app iniciar.
 
+O endpoint `/api/health` deve responder `200` sem depender de login. Use ele
+para validar se o processo web subiu corretamente no Railway.
+
 ## 5. Primeiro teste
 
 Depois do deploy, acessar a URL publica e validar:
@@ -68,10 +72,11 @@ Depois do deploy, acessar a URL publica e validar:
 - Dashboard carrega apos login.
 - Busca rapida abre apos login.
 - Rotas principais respondem.
+- `/api/health` responde `200`.
 - Logs nao mostram erro de Prisma ou banco.
+- Importacao inicial aparece apenas para usuario administrador.
 
 ## 6. Proximas etapas
 
-- Criar fluxo de troca de senha.
 - Criar politicas de backup/retencao no Railway/Postgres.
 - Validar importacao inicial com planilha real da loja.

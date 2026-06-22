@@ -18,6 +18,7 @@ import {
 
 import { requirePageUser } from "@/lib/auth";
 import { logoutAction } from "@/app/login/actions";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { MobileNavigation } from "@/components/layout/mobile-navigation";
 
@@ -163,14 +164,15 @@ export async function AppShell({
       />
 
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-stone-200 bg-white px-4 py-5 lg:flex">
-        <div className="mb-6 shrink-0">
-          <p className="text-sm font-semibold uppercase tracking-normal text-cellar">
-            Estoque Vinhos
+        <Link
+          href="/"
+          className="mb-6 block shrink-0 rounded-md border border-blush bg-blush px-3 py-3"
+        >
+          <BrandLogo className="h-auto w-44" />
+          <p className="mt-3 text-sm font-semibold text-cellarDark">
+            Estoque operacional
           </p>
-          <h1 className="mt-2 text-xl font-semibold text-ink">
-            Controle operacional
-          </h1>
-        </div>
+        </Link>
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
           {allowedNavigation.map((item) => {
@@ -179,16 +181,16 @@ export async function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+                className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-stone-700 hover:bg-blush hover:text-cellarDark"
               >
-                <Icon aria-hidden className="h-4 w-4" />
+                <Icon aria-hidden className="h-4 w-4 text-cellar" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-5 shrink-0 rounded-md border border-stone-200 bg-stone-50 p-3">
+        <div className="mt-5 shrink-0 rounded-md border border-blush bg-stone-50 p-3">
           <p className="text-sm font-semibold text-ink">{user.name}</p>
           <p className="mt-1 text-xs text-stone-500">
             {roleLabels[user.role]}

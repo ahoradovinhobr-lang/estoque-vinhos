@@ -1,8 +1,7 @@
 import { RecordStatus, UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-
-const SYSTEM_USER_EMAIL = "operador@estoque.local";
+import { SYSTEM_USER_EMAIL } from "@/lib/system-user";
 
 export async function getSystemUserId(): Promise<string> {
   const user = await prisma.user.upsert({
@@ -11,12 +10,12 @@ export async function getSystemUserId(): Promise<string> {
       name: "Operador do sistema",
       email: SYSTEM_USER_EMAIL,
       passwordHash: "system-user-without-login",
-      role: UserRole.ADMIN,
+      role: UserRole.ESTOQUE,
       status: RecordStatus.ACTIVE
     },
     update: {
       name: "Operador do sistema",
-      role: UserRole.ADMIN,
+      role: UserRole.ESTOQUE,
       status: RecordStatus.ACTIVE
     },
     select: { id: true }

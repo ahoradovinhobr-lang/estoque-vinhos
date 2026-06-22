@@ -73,7 +73,7 @@ export default async function InventoryPage() {
         </div>
         <Link
           href="/inventario/novo"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
         >
           <ClipboardCheck aria-hidden className="h-4 w-4" />
           Nova conferencia
@@ -176,7 +176,7 @@ export default async function InventoryPage() {
                             placeholder="justificativa"
                             className="h-9 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
                           />
-                          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-cellar px-3 text-sm font-semibold text-white hover:bg-[#4f2733]">
+                          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-cellar px-3 text-sm font-semibold text-white hover:bg-cellarDark">
                             <CheckCircle2 aria-hidden className="h-4 w-4" />
                             Ajustar
                           </button>

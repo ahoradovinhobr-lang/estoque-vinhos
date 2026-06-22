@@ -161,7 +161,7 @@ export default async function NewInventoryAuditPage({
               />
             </label>
             <div className="flex items-end gap-2 lg:col-span-2">
-              <button className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+              <button className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
                 <ClipboardCheck aria-hidden className="h-4 w-4" />
                 Registrar
               </button>

@@ -54,12 +54,17 @@ function revalidateQuickReadingPaths() {
 function redirectToReading(formData: FormData, result: QuickActionResult): never {
   const barcode = optionalText(formData, "returnBarcode");
   const query = optionalText(formData, "returnQuery");
+  const mode = optionalText(formData, "returnMode");
   const searchParams = new URLSearchParams({ sucesso: result });
 
   if (barcode) {
     searchParams.set("codigo", barcode);
   } else if (query) {
     searchParams.set("q", query);
+  }
+
+  if (mode === "balcao") {
+    searchParams.set("modo", "balcao");
   }
 
   redirect(`/leitura?${searchParams.toString()}`);

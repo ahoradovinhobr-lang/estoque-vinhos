@@ -8,7 +8,7 @@
     "start": "next start",
     "start:migrate": "prisma migrate deploy && next start",
     "lint": "next lint",
-    "test": "vitest",
+    "test": "vitest --configLoader runner",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

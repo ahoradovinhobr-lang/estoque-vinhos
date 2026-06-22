@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Estoque Vinhos",
-  description: "Gestao de estoque e localizacao para loja de vinhos."
+  title: "A Hora do Vinho | Estoque",
+  description: "Gestao de estoque e localizacao da A Hora do Vinho.",
+  icons: {
+    icon: "/brand/logo-a-hora-do-vinho.webp"
+  }
 };
 
 export default function RootLayout({

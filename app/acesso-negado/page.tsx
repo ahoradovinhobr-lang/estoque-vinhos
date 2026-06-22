@@ -21,7 +21,7 @@ export default async function AccessDeniedPage() {
         </p>
         <Link
           href="/"
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
         >
           Voltar ao dashboard
         </Link>

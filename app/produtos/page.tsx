@@ -215,17 +215,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           </label>
           <label className="lg:col-span-2">
             <span className="mb-1 block text-sm font-medium text-stone-700">
-              Custo
-            </span>
-            <input
-              name="costPrice"
-              inputMode="decimal"
-              placeholder="0,00"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
               Venda
             </span>
             <input
@@ -257,7 +246,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             />
           </label>
           <div className="flex items-end lg:col-span-2">
-            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
               <Plus aria-hidden className="h-4 w-4" />
               Salvar
             </button>
@@ -278,7 +267,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 <th className="px-4 py-3 font-medium">Produto</th>
                 <th className="px-4 py-3 font-medium">Identificacao</th>
                 <th className="px-4 py-3 font-medium">Fornecedor</th>
-                <th className="px-4 py-3 font-medium">Valores</th>
+                <th className="px-4 py-3 font-medium">Venda</th>
                 <th className="px-4 py-3 text-right font-medium">Estoque</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Acao</th>
@@ -353,8 +342,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                         {product.supplier?.name || "-"}
                       </td>
                       <td className="px-4 py-3 text-stone-600">
-                        <p>Custo {formatCurrency(product.costPrice)}</p>
-                        <p>Venda {formatCurrency(product.salePrice)}</p>
+                        {formatCurrency(product.salePrice)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-ink">
                         {totalStock}

@@ -10,8 +10,10 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#1d1b20",
-        paper: "#fbfaf7",
-        cellar: "#5e2f3d",
+        paper: "#fbfaf8",
+        blush: "#f8eef2",
+        cellar: "#a51649",
+        cellarDark: "#4b1227",
         olive: "#65734f",
         brass: "#b68b42"
       }

@@ -520,6 +520,7 @@ Pode:
 - Aplicar ajustes.
 - Estornar movimentacoes.
 - Ver todos os relatorios.
+- Executar importacao inicial ou importacoes em massa.
 
 ### 7.2 Estoque
 
@@ -537,6 +538,7 @@ Nao pode:
 - Gerenciar usuarios.
 - Estornar movimentacao sem permissao.
 - Inativar produtos ou locais sem permissao.
+- Executar importacao em massa.
 
 ### 7.3 Consulta
 

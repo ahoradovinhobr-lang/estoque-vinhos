@@ -82,7 +82,7 @@ export default async function LocationsPage() {
             </select>
           </label>
           <div className="flex items-end">
-            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
               <Plus aria-hidden className="h-4 w-4" />
               Salvar
             </button>

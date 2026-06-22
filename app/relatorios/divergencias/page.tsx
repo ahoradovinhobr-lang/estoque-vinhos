@@ -107,7 +107,7 @@ export default async function DivergencesReportPage({
               </option>
             ))}
           </select>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
             <Filter aria-hidden className="h-4 w-4" />
             Filtrar
           </button>

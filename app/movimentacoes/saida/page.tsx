@@ -123,7 +123,7 @@ export default async function ExitPage({ searchParams }: MovementFormPageProps) 
             />
           </label>
           <div className="flex items-end gap-2">
-            <button className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+            <button className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
               <ArrowUpFromLine aria-hidden className="h-4 w-4" />
               Registrar
             </button>

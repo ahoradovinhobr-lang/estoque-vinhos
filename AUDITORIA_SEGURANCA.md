@@ -52,8 +52,8 @@ preparacao para uso com dados reais.
    - `X-Frame-Options: DENY`.
    - `X-Content-Type-Options: nosniff`.
    - `Referrer-Policy: same-origin`.
-   - `Permissions-Policy` bloqueando camera, microfone, geolocalizacao e
-     recursos nao usados.
+   - `Permissions-Policy` permitindo camera apenas no proprio app e bloqueando
+     microfone, geolocalizacao e recursos nao usados.
 
 7. Eventos de seguranca
    - Registro de login com sucesso, falha de login, bloqueio temporario,
@@ -76,6 +76,13 @@ preparacao para uso com dados reais.
    - Reset administrativo de MFA para perda de dispositivo.
    - Eventos de MFA incluidos na auditoria de seguranca.
 
+10. Menor privilegio operacional
+   - Importacao inicial e importacoes em massa restritas a `ADMIN`.
+   - Perfil `ESTOQUE` permanece focado em leitura, movimentacao, inventario e
+     relatorios.
+   - Usuario interno reservado fica fora da tela de usuarios e nao conta como
+     administrador humano.
+
 ## Achados atuais
 
 ### P1 - MFA precisa ser ativado e testado em producao
@@ -93,12 +100,14 @@ O reset atual e administrativo. Nao ha fluxo de esquecimento de senha por email.
 Acao recomendada: manter reset administrativo por enquanto. Quando houver email,
 implementar token de uso unico, expiracao curta e resposta generica.
 
-### P2 - Sem revisao automatizada de dependencias
+### P2 - Pipeline de CI precisa ser executado no GitHub
 
-Nao ha pipeline de CI visivel para lint/build/auditoria de dependencias.
+Foi adicionado workflow de CI para `npm ci`, Prisma generate, testes e build.
+Ele precisa ser executado no GitHub apos o push para confirmar o ambiente de
+integracao.
 
-Acao recomendada: adicionar GitHub Actions para `npm ci`, `npm run build` e
-`npm audit --audit-level=high`.
+Acao recomendada: apos o primeiro push, validar o resultado do GitHub Actions e
+tratar qualquer falha antes de carga real.
 
 ### P2 - Backup e restauracao dependem do Railway/Postgres
 
@@ -127,7 +136,8 @@ build/teste confiavel, para evitar quebra silenciosa de hidratacao do Next.js.
 - Testar login, logout, troca de senha e reset administrativo.
 - Validar headers em producao.
 - Configurar backup/retencao no Postgres.
-- Criar CI de build antes de novos sprints grandes.
+- Criar CI de build antes de novos sprints grandes. Concluido localmente;
+  pendente validar no GitHub Actions apos push.
 
 ## Decisao tecnica
 

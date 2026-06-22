@@ -10,6 +10,7 @@ type ScanControls = {
 
 type CameraState = "idle" | "starting" | "scanning";
 type BarcodeSource = "input" | "camera";
+type ReadingMode = "padrao" | "balcao";
 
 function looksLikeBarcode(value: string): boolean {
   const normalized = value.replace(/\s+/g, "");
@@ -34,7 +35,13 @@ function cameraErrorMessage(error: unknown): string {
   return "Nao foi possivel iniciar a camera.";
 }
 
-export function BarcodeReader({ initialValue }: { initialValue: string }) {
+export function BarcodeReader({
+  initialValue,
+  mode
+}: {
+  initialValue: string;
+  mode: ReadingMode;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -43,6 +50,7 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
   const [term, setTerm] = useState(initialValue);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isCounterMode = mode === "balcao";
 
   function focusInput() {
     window.setTimeout(() => inputRef.current?.focus(), 50);
@@ -57,23 +65,31 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
 
   function goToValue(value: string, source: BarcodeSource) {
     const normalized = value.trim();
+    const params = new URLSearchParams();
+
+    if (isCounterMode) {
+      params.set("modo", "balcao");
+    }
 
     setTerm(normalized);
 
     if (!normalized) {
-      router.push("/leitura");
+      const queryString = params.toString();
+
+      router.push(queryString ? `/leitura?${queryString}` : "/leitura");
       focusInput();
       return;
     }
 
     if (source === "input" && !looksLikeBarcode(normalized)) {
-      router.push(`/leitura?q=${encodeURIComponent(normalized)}`);
+      params.set("q", normalized);
+      router.push(`/leitura?${params.toString()}`);
       return;
     }
 
-    router.push(
-      `/leitura?codigo=${encodeURIComponent(normalized)}&fonte=${source}`
-    );
+    params.set("codigo", normalized);
+    params.set("fonte", source);
+    router.push(`/leitura?${params.toString()}`);
   }
 
   async function startCamera() {
@@ -141,7 +157,13 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
   }, []);
 
   return (
-    <section className="rounded-md border border-stone-200 bg-white p-4">
+    <section
+      className={
+        isCounterMode
+          ? "rounded-md border border-cellar/25 bg-white p-4 shadow-sm"
+          : "rounded-md border border-stone-200 bg-white p-4"
+      }
+    >
       <form
         className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"
         onSubmit={(event) => {
@@ -161,12 +183,26 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
             autoFocus
             type="search"
             autoComplete="off"
-            placeholder="Nome, SKU, uva, pais, fornecedor ou codigo"
-            className="h-11 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+            placeholder={
+              isCounterMode
+                ? "Bipar, digitar nome ou codigo"
+                : "Nome, SKU, uva, pais, fornecedor ou codigo"
+            }
+            className={
+              isCounterMode
+                ? "h-12 w-full rounded-md border border-stone-300 px-3 text-base outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+                : "h-11 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+            }
           />
         </label>
         <div className="flex items-end">
-          <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733] lg:w-auto">
+          <button
+            className={
+              isCounterMode
+                ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-cellar px-5 text-base font-semibold text-white hover:bg-cellarDark lg:w-auto"
+                : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark lg:w-auto"
+            }
+          >
             <Search aria-hidden className="h-4 w-4" />
             Buscar
           </button>
@@ -176,7 +212,11 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
             <button
               type="button"
               onClick={startCamera}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+              className={
+                isCounterMode
+                  ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+                  : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+              }
             >
               <Camera aria-hidden className="h-4 w-4" />
               Camera
@@ -185,7 +225,11 @@ export function BarcodeReader({ initialValue }: { initialValue: string }) {
             <button
               type="button"
               onClick={stopCamera}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+              className={
+                isCounterMode
+                  ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+                  : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
+              }
             >
               <X aria-hidden className="h-4 w-4" />
               Parar

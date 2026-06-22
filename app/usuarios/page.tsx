@@ -12,6 +12,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 import { prisma } from "@/lib/prisma";
+import { SYSTEM_USER_EMAIL } from "@/lib/system-user";
 
 import {
   createUserAction,
@@ -33,6 +34,9 @@ export default async function UsersPage() {
   const currentUser = await requirePagePermission("users:write");
 
   const users = await prisma.user.findMany({
+    where: {
+      email: { not: SYSTEM_USER_EMAIL }
+    },
     orderBy: [{ status: "asc" }, { name: "asc" }]
   });
 
@@ -97,7 +101,7 @@ export default async function UsersPage() {
             />
           </label>
           <div className="flex items-end">
-            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]">
+            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
               <Plus aria-hidden className="h-4 w-4" />
               Criar
             </button>

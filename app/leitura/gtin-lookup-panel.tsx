@@ -184,7 +184,7 @@ export function GtinLookupPanel({
               {canCreateProduct ? (
                 <Link
                   href={productUrl(result)}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
                 >
                   Usar no cadastro
                 </Link>

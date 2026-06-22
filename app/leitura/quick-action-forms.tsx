@@ -21,12 +21,14 @@ const inputClass =
 const selectClass =
   "h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15";
 const primaryButtonClass =
-  "inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-[#4f2733]";
+  "inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark";
 
 type QuickActionFormsProps = {
   product: BarcodeLookupProduct;
   returnBarcode?: string;
   returnQuery?: string;
+  returnMode?: "balcao";
+  counterMode?: boolean;
   balancesWithStock: BarcodeLookupProduct["balances"];
   activeLocations: Pick<StorageLocation, "id" | "code" | "name">[];
   activeSuppliers: Pick<Supplier, "id" | "name">[];
@@ -36,8 +38,12 @@ type QuickActionFormsProps = {
 
 function ReturnFields({
   returnBarcode,
-  returnQuery
-}: Pick<QuickActionFormsProps, "returnBarcode" | "returnQuery">) {
+  returnQuery,
+  returnMode
+}: Pick<
+  QuickActionFormsProps,
+  "returnBarcode" | "returnQuery" | "returnMode"
+>) {
   return (
     <>
       {returnBarcode ? (
@@ -46,14 +52,29 @@ function ReturnFields({
       {returnQuery ? (
         <input type="hidden" name="returnQuery" value={returnQuery} />
       ) : null}
+      {returnMode ? (
+        <input type="hidden" name="returnMode" value={returnMode} />
+      ) : null}
     </>
   );
+}
+
+function detailsClassName(orderClass = ""): string {
+  return `${orderClass} border-t border-stone-100 pt-3`;
+}
+
+function summaryClassName(highlight = false): string {
+  return highlight
+    ? "flex h-10 cursor-pointer list-none items-center justify-between rounded-md border border-cellar/30 bg-blush px-3 text-sm font-semibold text-cellarDark hover:bg-blush [&::-webkit-details-marker]:hidden"
+    : "flex h-10 cursor-pointer list-none items-center justify-between rounded-md border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 [&::-webkit-details-marker]:hidden";
 }
 
 export function QuickActionForms({
   product,
   returnBarcode,
   returnQuery,
+  returnMode,
+  counterMode = false,
   balancesWithStock,
   activeLocations,
   activeSuppliers,
@@ -71,12 +92,16 @@ export function QuickActionForms({
     <div className="mt-4 border-t border-stone-200 pt-4">
       <p className="mb-3 text-sm font-semibold text-ink">Acoes rapidas</p>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {canWriteStock ? (
           <>
-            <details className="border-t border-stone-100 pt-3" open>
-              <summary className="cursor-pointer text-sm font-medium text-stone-700">
-                Entrada
+            <details className={detailsClassName(counterMode ? "order-2" : "")}>
+              <summary className={summaryClassName()}>
+                <span className="inline-flex items-center gap-2">
+                  <ArrowDownToLine aria-hidden className="h-4 w-4" />
+                  Entrada
+                </span>
+                <span className="text-xs text-stone-500">Abrir</span>
               </summary>
               <form
                 action={quickRegisterEntry}
@@ -86,6 +111,7 @@ export function QuickActionForms({
                 <ReturnFields
                   returnBarcode={returnBarcode}
                   returnQuery={returnQuery}
+                  returnMode={returnMode}
                 />
                 <input
                   type="hidden"
@@ -158,9 +184,15 @@ export function QuickActionForms({
               </form>
             </details>
 
-            <details className="border-t border-stone-100 pt-3">
-              <summary className="cursor-pointer text-sm font-medium text-stone-700">
-                Saida
+            <details
+              className={detailsClassName(counterMode ? "order-first" : "")}
+            >
+              <summary className={summaryClassName(counterMode)}>
+                <span className="inline-flex items-center gap-2">
+                  <ArrowUpFromLine aria-hidden className="h-4 w-4" />
+                  Saida
+                </span>
+                <span className="text-xs text-stone-500">Abrir</span>
               </summary>
               {balancesWithStock.length === 0 ? (
                 <p className="mt-3 text-sm text-stone-500">
@@ -175,6 +207,7 @@ export function QuickActionForms({
                   <ReturnFields
                     returnBarcode={returnBarcode}
                     returnQuery={returnQuery}
+                    returnMode={returnMode}
                   />
                   <input
                     type="hidden"
@@ -242,9 +275,13 @@ export function QuickActionForms({
               )}
             </details>
 
-            <details className="border-t border-stone-100 pt-3">
-              <summary className="cursor-pointer text-sm font-medium text-stone-700">
-                Transferencia
+            <details className={detailsClassName(counterMode ? "order-3" : "")}>
+              <summary className={summaryClassName()}>
+                <span className="inline-flex items-center gap-2">
+                  <ArrowRightLeft aria-hidden className="h-4 w-4" />
+                  Transferencia
+                </span>
+                <span className="text-xs text-stone-500">Abrir</span>
               </summary>
               {balancesWithStock.length === 0 ? (
                 <p className="mt-3 text-sm text-stone-500">
@@ -259,6 +296,7 @@ export function QuickActionForms({
                   <ReturnFields
                     returnBarcode={returnBarcode}
                     returnQuery={returnQuery}
+                    returnMode={returnMode}
                   />
                   <input
                     type="hidden"
@@ -338,9 +376,13 @@ export function QuickActionForms({
         ) : null}
 
         {canAuditInventory ? (
-          <details className="border-t border-stone-100 pt-3">
-            <summary className="cursor-pointer text-sm font-medium text-stone-700">
-              Inventario
+          <details className={detailsClassName(counterMode ? "order-4" : "")}>
+            <summary className={summaryClassName()}>
+              <span className="inline-flex items-center gap-2">
+                <ClipboardCheck aria-hidden className="h-4 w-4" />
+                Inventario
+              </span>
+              <span className="text-xs text-stone-500">Abrir</span>
             </summary>
             <form
               action={quickRegisterInventoryAudit}
@@ -350,6 +392,7 @@ export function QuickActionForms({
               <ReturnFields
                 returnBarcode={returnBarcode}
                 returnQuery={returnQuery}
+                returnMode={returnMode}
               />
               <input
                 type="hidden"
