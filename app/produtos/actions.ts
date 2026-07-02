@@ -14,9 +14,7 @@ import {
 import { generatedInternalSku } from "@/services/product-sku.service";
 import { findOrCreateProductFamily } from "@/services/products.service";
 
-export async function createProduct(formData: FormData) {
-  await requireActionPermission("products:write");
-
+function readProductPayload(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "") as ProductType;
   const wineColor = String(formData.get("wineColor") ?? "").trim() as WineColor;
@@ -45,55 +43,97 @@ export async function createProduct(formData: FormData) {
     throw new Error("Uva do produto e obrigatoria.");
   }
 
-  const family = await findOrCreateProductFamily({
+  return {
+    barcode,
+    country,
+    grape,
     name,
+    notes,
+    photoUrl,
+    salePrice,
+    supplierId,
     type,
-    supplierId
+    vintage,
+    wineColor
+  };
+}
+
+async function assertBarcodeCanBeUsed({
+  barcode,
+  productFamilyId,
+  productIdToIgnore,
+  vintage
+}: {
+  barcode: string;
+  productFamilyId: string;
+  productIdToIgnore?: string;
+  vintage: string;
+}) {
+  if (!barcode) {
+    return;
+  }
+
+  const productsWithBarcode = await prisma.product.findMany({
+    where: productIdToIgnore
+      ? {
+          barcode,
+          id: { not: productIdToIgnore }
+        }
+      : { barcode },
+    select: {
+      productFamilyId: true,
+      vintage: true
+    }
   });
 
-  if (barcode) {
-    const productsWithBarcode = await prisma.product.findMany({
-      where: { barcode },
-      select: {
-        productFamilyId: true,
-        vintage: true
-      }
-    });
+  const duplicatedInAnotherFamily = productsWithBarcode.find(
+    (product) => product.productFamilyId !== productFamilyId
+  );
 
-    const duplicatedInAnotherFamily = productsWithBarcode.find(
-      (product) => product.productFamilyId !== family.id
-    );
-
-    if (duplicatedInAnotherFamily) {
-      throw new Error(
-        "Codigo de barras ja usado por outro produto ou fornecedor."
-      );
-    }
-
-    const duplicatedSameVintage = productsWithBarcode.find(
-      (product) => (product.vintage ?? "") === vintage
-    );
-
-    if (duplicatedSameVintage) {
-      throw new Error("Codigo de barras ja cadastrado para essa safra.");
-    }
+  if (duplicatedInAnotherFamily) {
+    throw new Error("Codigo de barras ja usado por outro produto ou fornecedor.");
   }
+
+  const duplicatedSameVintage = productsWithBarcode.find(
+    (product) => (product.vintage ?? "") === vintage
+  );
+
+  if (duplicatedSameVintage) {
+    throw new Error("Codigo de barras ja cadastrado para essa safra.");
+  }
+}
+
+export async function createProduct(formData: FormData) {
+  await requireActionPermission("products:write");
+
+  const payload = readProductPayload(formData);
+  const family = await findOrCreateProductFamily({
+    name: payload.name,
+    type: payload.type,
+    supplierId: payload.supplierId
+  });
+
+  await assertBarcodeCanBeUsed({
+    barcode: payload.barcode,
+    productFamilyId: family.id,
+    vintage: payload.vintage
+  });
 
   await prisma.product.create({
     data: {
       productFamilyId: family.id,
-        sku: generatedInternalSku(),
-      name,
-      type,
-      wineColor,
-      grape,
-      country: country || null,
-      supplierId,
-      vintage: vintage || null,
-      barcode: barcode || null,
-      salePrice,
-      photoUrl,
-      notes: notes || null
+      sku: generatedInternalSku(),
+      name: payload.name,
+      type: payload.type,
+      wineColor: payload.wineColor,
+      grape: payload.grape,
+      country: payload.country || null,
+      supplierId: payload.supplierId,
+      vintage: payload.vintage || null,
+      barcode: payload.barcode || null,
+      salePrice: payload.salePrice,
+      photoUrl: payload.photoUrl,
+      notes: payload.notes || null
     }
   });
 
@@ -142,6 +182,62 @@ export async function reactivateProduct(formData: FormData) {
   revalidatePath("/produtos");
   revalidatePath("/busca");
   revalidatePath("/leitura");
+}
+
+export async function updateProduct(formData: FormData) {
+  await requireActionPermission("products:write");
+
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    throw new Error("Produto nao informado.");
+  }
+
+  const payload = readProductPayload(formData);
+  const existingProduct = await prisma.product.findUnique({
+    where: { id },
+    select: { id: true }
+  });
+
+  if (!existingProduct) {
+    throw new Error("Produto nao encontrado.");
+  }
+
+  const family = await findOrCreateProductFamily({
+    name: payload.name,
+    type: payload.type,
+    supplierId: payload.supplierId
+  });
+
+  await assertBarcodeCanBeUsed({
+    barcode: payload.barcode,
+    productFamilyId: family.id,
+    productIdToIgnore: id,
+    vintage: payload.vintage
+  });
+
+  await prisma.product.update({
+    where: { id },
+    data: {
+      productFamilyId: family.id,
+      name: payload.name,
+      type: payload.type,
+      wineColor: payload.wineColor,
+      grape: payload.grape,
+      country: payload.country || null,
+      supplierId: payload.supplierId,
+      vintage: payload.vintage || null,
+      barcode: payload.barcode || null,
+      salePrice: payload.salePrice,
+      photoUrl: payload.photoUrl,
+      notes: payload.notes || null
+    }
+  });
+
+  revalidatePath("/produtos");
+  revalidatePath("/busca");
+  revalidatePath("/leitura");
+  revalidatePath("/movimentacoes/venda");
 }
 
 export async function deleteProduct(formData: FormData) {

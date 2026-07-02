@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { ProductType, RecordStatus, WineColor } from "@prisma/client";
 import {
   Barcode,
   ImageIcon,
+  Pencil,
   Plus,
   RotateCcw,
+  Save,
   Trash2,
   Wine,
   XCircle
@@ -20,7 +23,8 @@ import {
   createProduct,
   deleteProduct,
   inactivateProduct,
-  reactivateProduct
+  reactivateProduct,
+  updateProduct
 } from "./actions";
 
 const productTypeLabels: Record<ProductType, string> = {
@@ -40,6 +44,7 @@ type ProductsPageProps = {
   searchParams?: Promise<{
     barcode?: string;
     country?: string;
+    edit?: string;
     grape?: string;
     name?: string;
     photoUrl?: string;
@@ -58,11 +63,193 @@ function enumParam<T extends string>(
   return allowedValues.includes(candidate as T) ? (candidate as T) : "";
 }
 
+type SupplierOption = {
+  id: string;
+  name: string;
+};
+
+type ProductFormInitial = {
+  barcode?: string | null;
+  country?: string | null;
+  grape?: string | null;
+  name?: string | null;
+  notes?: string | null;
+  photoUrl?: string | null;
+  salePrice?: { toString(): string } | string | null;
+  supplierId?: string | null;
+  type?: ProductType | "";
+  vintage?: string | null;
+  wineColor?: WineColor | "";
+};
+
+function ProductFormFields({
+  initial = {},
+  suppliers
+}: {
+  initial?: ProductFormInitial;
+  suppliers: SupplierOption[];
+}) {
+  return (
+    <>
+      <label className="lg:col-span-6">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Nome
+        </span>
+        <input
+          name="name"
+          required
+          defaultValue={initial.name ?? ""}
+          placeholder="Nome do rotulo"
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Tipo
+        </span>
+        <select
+          name="type"
+          required
+          defaultValue={initial.type ?? ""}
+          className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        >
+          <option value="" disabled>
+            Selecione
+          </option>
+          {Object.entries(productTypeLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Cor
+        </span>
+        <select
+          name="wineColor"
+          required
+          defaultValue={initial.wineColor ?? ""}
+          className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        >
+          <option value="" disabled>
+            Selecione
+          </option>
+          {Object.entries(wineColorLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Pais
+        </span>
+        <input
+          name="country"
+          defaultValue={initial.country ?? ""}
+          placeholder="Brasil"
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Safra
+        </span>
+        <input
+          name="vintage"
+          defaultValue={initial.vintage ?? ""}
+          placeholder="2020"
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-3">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Fornecedor
+        </span>
+        <select
+          name="supplierId"
+          defaultValue={initial.supplierId ?? ""}
+          className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        >
+          <option value="">Sem fornecedor</option>
+          {suppliers.map((supplier) => (
+            <option key={supplier.id} value={supplier.id}>
+              {supplier.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="lg:col-span-3">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Uva
+        </span>
+        <input
+          name="grape"
+          required
+          defaultValue={initial.grape ?? ""}
+          placeholder="Cabernet Sauvignon"
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Codigo de barras
+        </span>
+        <input
+          name="barcode"
+          inputMode="numeric"
+          defaultValue={initial.barcode ?? ""}
+          placeholder="789..."
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-2">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Venda
+        </span>
+        <input
+          name="salePrice"
+          inputMode="decimal"
+          defaultValue={initial.salePrice?.toString() ?? ""}
+          placeholder="0,00"
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-5">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Foto
+        </span>
+        <input
+          name="photoUrl"
+          type="url"
+          defaultValue={initial.photoUrl ?? ""}
+          placeholder="https://..."
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+      <label className="lg:col-span-5">
+        <span className="mb-1 block text-sm font-medium text-stone-700">
+          Observacoes
+        </span>
+        <input
+          name="notes"
+          defaultValue={initial.notes ?? ""}
+          className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
+        />
+      </label>
+    </>
+  );
+}
+
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const currentUser = await requirePagePermission("products:write");
   const canManageProducts = hasPermission(currentUser.role, "products:delete");
 
   const params = await searchParams;
+  const productIdToEdit = String(params?.edit ?? "").trim();
   const initialBarcode = String(params?.barcode ?? "").trim();
   const initialName = String(params?.name ?? "").trim();
   const initialCountry = String(params?.country ?? "").trim();
@@ -95,6 +282,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       orderBy: { name: "asc" }
     })
   ]);
+  const productToEdit = productIdToEdit
+    ? products.find((product) => product.id === productIdToEdit)
+    : null;
 
   return (
     <AppShell>
@@ -106,153 +296,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       <section className="min-w-0 rounded-md border border-stone-200 bg-white p-4">
         <h3 className="mb-4 text-base font-semibold text-ink">Novo produto</h3>
         <form action={createProduct} className="grid gap-3 lg:grid-cols-12">
-          <label className="lg:col-span-6">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Nome
-            </span>
-            <input
-              name="name"
-              required
-              defaultValue={initialName}
-              placeholder="Nome do rotulo"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Tipo
-            </span>
-            <select
-              name="type"
-              required
-              defaultValue={initialType}
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {Object.entries(productTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Cor
-            </span>
-            <select
-              name="wineColor"
-              required
-              defaultValue={initialWineColor}
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {Object.entries(wineColorLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Pais
-            </span>
-            <input
-              name="country"
-              defaultValue={initialCountry}
-              placeholder="Brasil"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Safra
-            </span>
-            <input
-              name="vintage"
-              defaultValue={initialVintage}
-              placeholder="2020"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-3">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Fornecedor
-            </span>
-            <select
-              name="supplierId"
-              defaultValue=""
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="">Sem fornecedor</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="lg:col-span-3">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Uva
-            </span>
-            <input
-              name="grape"
-              required
-              defaultValue={initialGrape}
-              placeholder="Cabernet Sauvignon"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Codigo de barras
-            </span>
-            <input
-              name="barcode"
-              inputMode="numeric"
-              defaultValue={initialBarcode}
-              placeholder="789..."
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Venda
-            </span>
-            <input
-              name="salePrice"
-              inputMode="decimal"
-              placeholder="0,00"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-5">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Foto
-            </span>
-            <input
-              name="photoUrl"
-              type="url"
-              defaultValue={initialPhotoUrl}
-              placeholder="https://..."
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-5">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Observacoes
-            </span>
-            <input
-              name="notes"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
+          <ProductFormFields
+            suppliers={suppliers}
+            initial={{
+              barcode: initialBarcode,
+              country: initialCountry,
+              grape: initialGrape,
+              name: initialName,
+              photoUrl: initialPhotoUrl,
+              type: initialType,
+              vintage: initialVintage,
+              wineColor: initialWineColor
+            }}
+          />
           <div className="flex items-end lg:col-span-2">
             <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
               <Plus aria-hidden className="h-4 w-4" />
@@ -261,6 +317,57 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           </div>
         </form>
       </section>
+
+      {productToEdit ? (
+        <section
+          id="editar-produto"
+          className="mt-6 min-w-0 rounded-md border border-cellar/25 bg-white p-4 shadow-sm"
+        >
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-cellar">Edicao</p>
+              <h3 className="text-base font-semibold text-ink">
+                Editar produto
+              </h3>
+            </div>
+            <Link
+              href="/produtos"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              Cancelar
+            </Link>
+          </div>
+          <form action={updateProduct} className="grid gap-3 lg:grid-cols-12">
+            <input type="hidden" name="id" value={productToEdit.id} />
+            <ProductFormFields
+              suppliers={suppliers}
+              initial={{
+                barcode: productToEdit.barcode,
+                country: productToEdit.country,
+                grape: productToEdit.grape,
+                name: productToEdit.name,
+                notes: productToEdit.notes,
+                photoUrl: productToEdit.photoUrl,
+                salePrice: productToEdit.salePrice,
+                supplierId: productToEdit.supplierId,
+                type: productToEdit.type,
+                vintage: productToEdit.vintage,
+                wineColor: productToEdit.wineColor
+              }}
+            />
+            <div className="flex items-end lg:col-span-2">
+              <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark">
+                <Save aria-hidden className="h-4 w-4" />
+                Atualizar
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : productIdToEdit ? (
+        <section className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+          Produto selecionado para edicao nao foi encontrado.
+        </section>
+      ) : null}
 
       <section className="mt-6 min-w-0 rounded-md border border-stone-200 bg-white">
         <div className="border-b border-stone-200 px-4 py-3">
@@ -367,8 +474,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {canManageProducts ? (
-                          <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/produtos?edit=${product.id}#editar-produto`}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                          >
+                            <Pencil aria-hidden className="h-4 w-4" />
+                            Editar
+                          </Link>
+                          {canManageProducts ? (
+                            <>
                             <form
                               action={
                                 product.status === RecordStatus.ACTIVE
@@ -420,10 +535,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                                 </ConfirmSubmitButton>
                               </form>
                             ) : null}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-stone-400">-</span>
-                        )}
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
