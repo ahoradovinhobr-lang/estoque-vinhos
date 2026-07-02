@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "start:migrate": "prisma migrate deploy && next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest --configLoader runner",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",

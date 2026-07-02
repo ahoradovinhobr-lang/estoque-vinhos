@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowDownToLine } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { StorageLocationPicker } from "@/components/location/storage-location-picker";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -88,26 +89,12 @@ export default async function EntryPage({
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
           </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Local de destino
-            </span>
-            <select
-              name="destinationLocationId"
-              required
-              defaultValue=""
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.code} - {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <StorageLocationPicker
+            name="destinationLocationId"
+            label="Local de destino"
+            locations={locations}
+            className="lg:col-span-3"
+          />
           <label className="lg:col-span-3">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Fornecedor

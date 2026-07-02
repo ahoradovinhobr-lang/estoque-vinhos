@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import type { ComponentType } from "react";
 import Link from "next/link";
 import { MovementStatus, MovementType } from "@prisma/client";
 import {
@@ -7,6 +8,7 @@ import {
   ArrowUpFromLine,
   History,
   RotateCcw,
+  ShoppingCart,
   SlidersHorizontal,
   TriangleAlert
 } from "lucide-react";
@@ -15,49 +17,70 @@ import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import type { Permission } from "@/lib/permissions";
 
 import { registerReversal } from "./actions";
 import { movementTypeLabels } from "./options";
 
 const movementActions = [
   {
+    href: "/movimentacoes/venda",
+    label: "Venda",
+    detail: "Baixar varios itens de uma venda",
+    icon: ShoppingCart,
+    permission: "stock:sale"
+  },
+  {
     href: "/movimentacoes/entrada",
     label: "Entrada",
     detail: "Adicionar saldo em um local",
-    icon: ArrowDownToLine
+    icon: ArrowDownToLine,
+    permission: "stock:write"
   },
   {
     href: "/movimentacoes/saida",
     label: "Saida",
     detail: "Retirar saldo de um local",
-    icon: ArrowUpFromLine
+    icon: ArrowUpFromLine,
+    permission: "stock:write"
   },
   {
     href: "/movimentacoes/transferencia",
     label: "Transferencia",
     detail: "Mover entre locais",
-    icon: ArrowRightLeft
+    icon: ArrowRightLeft,
+    permission: "stock:write"
   },
   {
     href: "/movimentacoes/ajuste",
     label: "Ajuste",
     detail: "Definir saldo final com justificativa",
-    icon: SlidersHorizontal
+    icon: SlidersHorizontal,
+    permission: "stock:write"
   },
   {
     href: "/movimentacoes/perda",
     label: "Perda/Avaria",
     detail: "Baixar saldo com motivo",
-    icon: TriangleAlert
+    icon: TriangleAlert,
+    permission: "stock:write"
   }
-];
+] satisfies Array<{
+  href: string;
+  label: string;
+  detail: string;
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  permission: Permission;
+}>;
 
 export const dynamic = "force-dynamic";
 
 export default async function MovementsPage() {
   const user = await requirePagePermission("stock:read");
-  const canWriteStock = hasPermission(user.role, "stock:write");
   const canReverseStock = hasPermission(user.role, "stock:reverse");
+  const allowedMovementActions = movementActions.filter((item) =>
+    hasPermission(user.role, item.permission)
+  );
 
   const movements = await prisma.stockMovement.findMany({
     include: {
@@ -85,9 +108,9 @@ export default async function MovementsPage() {
         </h2>
       </header>
 
-      {canWriteStock ? (
+      {allowedMovementActions.length > 0 ? (
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {movementActions.map((item) => {
+          {allowedMovementActions.map((item) => {
             const Icon = item.icon;
 
             return (

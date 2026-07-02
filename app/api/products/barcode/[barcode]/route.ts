@@ -81,7 +81,6 @@ export async function GET(
     count: lookup.products.length,
     products: lookup.products.map((product) => ({
       id: product.id,
-      sku: product.sku,
       name: product.name,
       type: product.type,
       typeLabel: productTypeLabels[product.type],

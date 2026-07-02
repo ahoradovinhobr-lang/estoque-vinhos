@@ -1,13 +1,24 @@
 import { ProductType, RecordStatus, WineColor } from "@prisma/client";
-import { Barcode, ImageIcon, Plus, RotateCcw, Wine, XCircle } from "lucide-react";
+import {
+  Barcode,
+  ImageIcon,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Wine,
+  XCircle
+} from "lucide-react";
 
+import { ConfirmSubmitButton } from "@/components/form/confirm-submit-button";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePagePermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
 import {
   createProduct,
+  deleteProduct,
   inactivateProduct,
   reactivateProduct
 } from "./actions";
@@ -48,7 +59,8 @@ function enumParam<T extends string>(
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  await requirePagePermission("products:write");
+  const currentUser = await requirePagePermission("products:write");
+  const canManageProducts = hasPermission(currentUser.role, "products:delete");
 
   const params = await searchParams;
   const initialBarcode = String(params?.barcode ?? "").trim();
@@ -67,7 +79,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     prisma.product.findMany({
       include: {
         balances: true,
-        supplier: true
+        supplier: true,
+        _count: {
+          select: {
+            inventoryAudits: true,
+            movementLines: true,
+            movements: true
+          }
+        }
       },
       orderBy: [{ status: "asc" }, { name: "asc" }, { vintage: "desc" }]
     }),
@@ -84,21 +103,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <h2 className="mt-1 text-2xl font-semibold text-ink">Produtos</h2>
       </header>
 
-      <section className="rounded-md border border-stone-200 bg-white p-4">
+      <section className="min-w-0 rounded-md border border-stone-200 bg-white p-4">
         <h3 className="mb-4 text-base font-semibold text-ink">Novo produto</h3>
         <form action={createProduct} className="grid gap-3 lg:grid-cols-12">
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              SKU
-            </span>
-            <input
-              name="sku"
-              required
-              placeholder="VIN-001"
-              className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm uppercase outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            />
-          </label>
-          <label className="lg:col-span-4">
+          <label className="lg:col-span-6">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Nome
             </span>
@@ -254,18 +262,18 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         </form>
       </section>
 
-      <section className="mt-6 rounded-md border border-stone-200 bg-white">
+      <section className="mt-6 min-w-0 rounded-md border border-stone-200 bg-white">
         <div className="border-b border-stone-200 px-4 py-3">
           <h3 className="text-base font-semibold text-ink">
             Produtos cadastrados
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1320px] border-collapse text-sm">
+          <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
                 <th className="px-4 py-3 font-medium">Produto</th>
-                <th className="px-4 py-3 font-medium">Identificacao</th>
+                <th className="px-4 py-3 font-medium">Codigo de barras</th>
                 <th className="px-4 py-3 font-medium">Fornecedor</th>
                 <th className="px-4 py-3 font-medium">Venda</th>
                 <th className="px-4 py-3 text-right font-medium">Estoque</th>
@@ -289,6 +297,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     (sum, balance) => sum + balance.quantity,
                     0
                   );
+                  const hasOperationalHistory =
+                    product.balances.length > 0 ||
+                    product._count.inventoryAudits > 0 ||
+                    product._count.movementLines > 0 ||
+                    product._count.movements > 0;
                   const characteristics = [
                     productTypeLabels[product.type],
                     wineColorLabels[product.wineColor],
@@ -329,7 +342,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                         </div>
                       </td>
                       <td className="px-4 py-3 text-stone-600">
-                        <p className="font-medium text-ink">{product.sku}</p>
                         <p className="inline-flex items-center gap-2">
                           <Barcode
                             aria-hidden
@@ -355,28 +367,63 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <form
-                          action={
-                            product.status === RecordStatus.ACTIVE
-                              ? inactivateProduct
-                              : reactivateProduct
-                          }
-                        >
-                          <input type="hidden" name="id" value={product.id} />
-                          <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
-                            {product.status === RecordStatus.ACTIVE ? (
-                              <>
-                                <XCircle aria-hidden className="h-4 w-4" />
-                                Inativar
-                              </>
-                            ) : (
-                              <>
-                                <RotateCcw aria-hidden className="h-4 w-4" />
-                                Reativar
-                              </>
-                            )}
-                          </button>
-                        </form>
+                        {canManageProducts ? (
+                          <div className="flex justify-end gap-2">
+                            <form
+                              action={
+                                product.status === RecordStatus.ACTIVE
+                                  ? inactivateProduct
+                                  : reactivateProduct
+                              }
+                            >
+                              <input
+                                type="hidden"
+                                name="id"
+                                value={product.id}
+                              />
+                              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                                {product.status === RecordStatus.ACTIVE ? (
+                                  <>
+                                    <XCircle
+                                      aria-hidden
+                                      className="h-4 w-4"
+                                    />
+                                    Inativar
+                                  </>
+                                ) : (
+                                  <>
+                                    <RotateCcw
+                                      aria-hidden
+                                      className="h-4 w-4"
+                                    />
+                                    Reativar
+                                  </>
+                                )}
+                              </button>
+                            </form>
+                            {!hasOperationalHistory ? (
+                              <form action={deleteProduct}>
+                                <input
+                                  type="hidden"
+                                  name="id"
+                                  value={product.id}
+                                />
+                                <ConfirmSubmitButton
+                                  message={`Excluir definitivamente "${product.name}"? Esta acao nao pode ser desfeita.`}
+                                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2
+                                    aria-hidden
+                                    className="h-4 w-4"
+                                  />
+                                  Excluir
+                                </ConfirmSubmitButton>
+                              </form>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-stone-400">-</span>
+                        )}
                       </td>
                     </tr>
                   );

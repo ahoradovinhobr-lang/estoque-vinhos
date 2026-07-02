@@ -7,13 +7,16 @@ import { requireActionPermission } from "@/lib/auth";
 import { parseMoneyInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { parseOptionalHttpUrl } from "@/lib/urls";
-import { ensureNoProductBalance } from "@/services/inventory.service";
+import {
+  ensureNoProductBalance,
+  ensureProductHasNoOperationalHistory
+} from "@/services/inventory.service";
+import { generatedInternalSku } from "@/services/product-sku.service";
 import { findOrCreateProductFamily } from "@/services/products.service";
 
 export async function createProduct(formData: FormData) {
   await requireActionPermission("products:write");
 
-  const sku = String(formData.get("sku") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "") as ProductType;
   const wineColor = String(formData.get("wineColor") ?? "").trim() as WineColor;
@@ -25,10 +28,6 @@ export async function createProduct(formData: FormData) {
   const salePrice = parseMoneyInput(formData.get("salePrice"), "Valor de venda");
   const photoUrl = parseOptionalHttpUrl(formData.get("photoUrl"), "Foto");
   const notes = String(formData.get("notes") ?? "").trim();
-
-  if (!sku) {
-    throw new Error("SKU do produto e obrigatorio.");
-  }
 
   if (!name) {
     throw new Error("Nome do produto e obrigatorio.");
@@ -46,15 +45,6 @@ export async function createProduct(formData: FormData) {
     throw new Error("Uva do produto e obrigatoria.");
   }
 
-  const existingSku = await prisma.product.findUnique({
-    where: { sku },
-    select: { id: true }
-  });
-
-  if (existingSku) {
-    throw new Error("SKU ja cadastrado.");
-  }
-
   const family = await findOrCreateProductFamily({
     name,
     type,
@@ -66,7 +56,6 @@ export async function createProduct(formData: FormData) {
       where: { barcode },
       select: {
         productFamilyId: true,
-        sku: true,
         vintage: true
       }
     });
@@ -93,7 +82,7 @@ export async function createProduct(formData: FormData) {
   await prisma.product.create({
     data: {
       productFamilyId: family.id,
-      sku,
+        sku: generatedInternalSku(),
       name,
       type,
       wineColor,
@@ -114,7 +103,7 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function inactivateProduct(formData: FormData) {
-  await requireActionPermission("products:write");
+  await requireActionPermission("products:delete");
 
   const id = String(formData.get("id") ?? "");
 
@@ -137,7 +126,7 @@ export async function inactivateProduct(formData: FormData) {
 }
 
 export async function reactivateProduct(formData: FormData) {
-  await requireActionPermission("products:write");
+  await requireActionPermission("products:delete");
 
   const id = String(formData.get("id") ?? "");
 
@@ -148,6 +137,34 @@ export async function reactivateProduct(formData: FormData) {
   await prisma.product.update({
     where: { id },
     data: { status: RecordStatus.ACTIVE }
+  });
+
+  revalidatePath("/produtos");
+  revalidatePath("/busca");
+  revalidatePath("/leitura");
+}
+
+export async function deleteProduct(formData: FormData) {
+  await requireActionPermission("products:delete");
+
+  const id = String(formData.get("id") ?? "");
+
+  if (!id) {
+    throw new Error("Produto nao informado.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const product = await tx.product.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!product) {
+      throw new Error("Produto nao encontrado.");
+    }
+
+    await ensureProductHasNoOperationalHistory(tx, id);
+    await tx.product.delete({ where: { id } });
   });
 
   revalidatePath("/produtos");

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SlidersHorizontal } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { StorageLocationPicker } from "@/components/location/storage-location-picker";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -45,13 +46,16 @@ export default async function AdjustmentPage({
       </header>
 
       <section className="rounded-md border border-stone-200 bg-white p-4">
-        <form action={registerAdjustment} className="grid gap-3 lg:grid-cols-6">
+        <form
+          action={registerAdjustment}
+          className="grid gap-3 lg:grid-cols-8"
+        >
           <input
             type="hidden"
             name="idempotencyKey"
             value={`adjustment:${randomUUID()}`}
           />
-          <label className="lg:col-span-3">
+          <label className="lg:col-span-4">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Produto
             </span>
@@ -71,26 +75,12 @@ export default async function AdjustmentPage({
               ))}
             </select>
           </label>
-          <label className="lg:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Local afetado
-            </span>
-            <select
-              name="affectedLocationId"
-              required
-              defaultValue=""
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.code} - {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <StorageLocationPicker
+            name="affectedLocationId"
+            label="Local afetado"
+            locations={locations}
+            className="lg:col-span-3"
+          />
           <label>
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Saldo final

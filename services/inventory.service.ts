@@ -99,6 +99,25 @@ export async function ensureNoProductBalance(
   }
 }
 
+export async function ensureProductHasNoOperationalHistory(
+  tx: Tx,
+  productId: string
+): Promise<void> {
+  const [balances, movements, movementLines, inventoryAudits] =
+    await Promise.all([
+      tx.inventoryBalance.count({ where: { productId } }),
+      tx.stockMovement.count({ where: { productId } }),
+      tx.stockMovementLine.count({ where: { productId } }),
+      tx.inventoryAudit.count({ where: { productId } })
+    ]);
+
+  if (balances + movements + movementLines + inventoryAudits > 0) {
+    throw new Error(
+      "Produto com saldo, movimentacao ou inventario nao pode ser excluido. Inative o produto para preservar o historico."
+    );
+  }
+}
+
 export async function ensureNoLocationBalance(
   tx: Tx,
   storageLocationId: string

@@ -12,7 +12,7 @@ import type { ImportActionState } from "./types";
 
 async function importInput(formData: FormData) {
   const fileName =
-    String(formData.get("fileName") ?? "").trim() || "importacao-inicial.csv";
+    String(formData.get("fileName") ?? "").trim() || "cadastro-vinhos.csv";
   const rawText = String(formData.get("rawText") ?? "").trim();
 
   return { fileName, rawText };
@@ -31,7 +31,7 @@ export async function simulateImportAction(
     return {
       mode: "simulation",
       message: result.canApply
-        ? "Simulacao concluida. A importacao pode ser aplicada."
+        ? "Simulacao concluida. O cadastro pode ser aplicado."
         : "Simulacao concluida com pendencias.",
       result,
       batchId: null
@@ -42,7 +42,7 @@ export async function simulateImportAction(
       message:
         error instanceof Error
           ? error.message
-          : "Falha ao simular importacao.",
+          : "Falha ao simular cadastro.",
       result: null,
       batchId: null
     };
@@ -61,13 +61,14 @@ export async function applyImportAction(
     if (!result.applied) {
       return {
         mode: "simulation",
-        message: "Importacao nao aplicada porque ainda existem pendencias.",
+        message: "Cadastro nao aplicado porque ainda existem pendencias.",
         result,
         batchId: result.batchId
       };
     }
 
     revalidatePath("/");
+    revalidatePath("/dashboard");
     revalidatePath("/busca");
     revalidatePath("/leitura");
     revalidatePath("/produtos");
@@ -81,7 +82,7 @@ export async function applyImportAction(
 
     return {
       mode: "applied",
-      message: "Importacao aplicada com sucesso.",
+      message: "Cadastro aplicado com sucesso.",
       result,
       batchId: result.batchId
     };
@@ -91,7 +92,7 @@ export async function applyImportAction(
       message:
         error instanceof Error
           ? error.message
-          : "Falha ao aplicar importacao.",
+          : "Falha ao aplicar cadastro.",
       result: null,
       batchId: null
     };

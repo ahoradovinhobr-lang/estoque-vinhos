@@ -22,7 +22,6 @@ export const movementTypeLabels: Record<MovementType, string> = {
 };
 
 type ProductOption = {
-  sku: string;
   name: string;
   type: ProductType;
   wineColor: WineColor;
@@ -32,7 +31,6 @@ type ProductOption = {
 
 export function productOptionLabel(product: ProductOption): string {
   return [
-    product.sku,
     product.name,
     productTypeLabels[product.type],
     wineColorLabels[product.wineColor],

@@ -2,7 +2,11 @@
 
 import { redirect } from "next/navigation";
 
-import { createSession, requireActionUser } from "@/lib/auth";
+import {
+  authenticatedHomePath,
+  createSession,
+  requireActionUser
+} from "@/lib/auth";
 import { changeOwnPassword } from "@/services/users.service";
 
 import type { ChangePasswordState } from "./types";
@@ -29,5 +33,5 @@ export async function changePasswordAction(
     };
   }
 
-  redirect("/");
+  redirect(authenticatedHomePath({ ...user, mustChangePassword: false }));
 }

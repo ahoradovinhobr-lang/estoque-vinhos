@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
+import {
+  authenticatedHomePath,
+  getCurrentUser,
+  isAuthConfigured
+} from "@/lib/auth";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 import { ensureBootstrapAdmin } from "@/services/users.service";
@@ -13,7 +17,7 @@ export default async function LoginPage() {
   const currentUser = await getCurrentUser();
 
   if (currentUser) {
-    redirect("/");
+    redirect(authenticatedHomePath(currentUser));
   }
 
   const bootstrap = await ensureBootstrapAdmin();

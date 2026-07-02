@@ -9,8 +9,8 @@ import {
   type ImportActionState
 } from "./types";
 
-const exampleText = `sku\tname\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tsale_price\tphoto_url\tquantity\tlocation_code\tnotes
-VIN-001\tVinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t789000000001\t79,90\thttps://example.com/vinho.jpg\t6\tP-A-N1\tCarga inicial`;
+const exampleText = `name\ttype\twine_color\tgrape\tcountry\tsupplier\tvintage\tbarcode\tsale_price\tphoto_url\tnotes
+Vinho Exemplo Malbec\twine\tred\tMalbec\tArgentina\tFornecedor Exemplo\t2022\t4006381333931\t79,90\thttps://example.com/vinho.jpg\tCadastro inicial`;
 
 function ResultSummary({ state }: { state: ImportActionState }) {
   if (!state.result) {
@@ -79,22 +79,20 @@ function ResultTable({ state }: { state: ImportActionState }) {
         </h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1120px] border-collapse text-sm">
+        <table className="w-full min-w-[920px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-stone-200 bg-stone-50 text-left text-stone-600">
               <th className="px-4 py-3 font-medium">Linha</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">SKU</th>
+              <th className="px-4 py-3 font-medium">Codigo</th>
               <th className="px-4 py-3 font-medium">Produto</th>
-              <th className="px-4 py-3 font-medium">Local</th>
-              <th className="px-4 py-3 text-right font-medium">Qtd.</th>
               <th className="px-4 py-3 font-medium">Acao</th>
               <th className="px-4 py-3 font-medium">Mensagens</th>
             </tr>
           </thead>
           <tbody>
             {state.result.rows.map((row) => (
-              <tr key={`${row.rowNumber}-${row.sku}`} className="border-b border-stone-100">
+              <tr key={`${row.rowNumber}-${row.name}-${row.barcode ?? ""}`} className="border-b border-stone-100">
                 <td className="px-4 py-3">{row.rowNumber}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
@@ -106,14 +104,8 @@ function ResultTable({ state }: { state: ImportActionState }) {
                     {row.status === "valid" ? "Valida" : "Erro"}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-medium text-ink">{row.sku || "-"}</td>
+                <td className="px-4 py-3 font-medium text-ink">{row.barcode || "-"}</td>
                 <td className="px-4 py-3 text-stone-600">{row.name || "-"}</td>
-                <td className="px-4 py-3 text-stone-600">
-                  {row.locationCode || "-"}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold text-ink">
-                  {row.quantity ?? "-"}
-                </td>
                 <td className="px-4 py-3 text-stone-600">{row.action}</td>
                 <td className="px-4 py-3 text-stone-600">
                   {[...row.errors, ...row.warnings].join(" | ") || "-"}
@@ -163,7 +155,7 @@ export function ImportForm() {
             </span>
             <input
               name="fileName"
-              defaultValue="importacao-inicial.csv"
+              defaultValue="cadastro-vinhos.csv"
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
           </label>
@@ -185,7 +177,7 @@ export function ImportForm() {
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileText aria-hidden className="h-4 w-4" />
-              {isSimulating ? "Simulando..." : "Simular importacao"}
+              {isSimulating ? "Simulando..." : "Simular cadastro"}
             </button>
           </div>
         </form>
@@ -222,7 +214,7 @@ export function ImportForm() {
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Upload aria-hidden className="h-4 w-4" />
-              {isApplying ? "Aplicando..." : "Aplicar importacao definitiva"}
+              {isApplying ? "Aplicando..." : "Aplicar cadastro definitivo"}
             </button>
           </form>
         </section>

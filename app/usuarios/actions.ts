@@ -64,6 +64,65 @@ export async function createUserAction(formData: FormData) {
   revalidatePath("/usuarios");
 }
 
+async function assertCanRemoveActiveAdmin(targetUserId: string) {
+  const remainingActiveAdmins = await prisma.user.count({
+    where: {
+      id: { not: targetUserId },
+      email: { not: SYSTEM_USER_EMAIL },
+      role: UserRole.ADMIN,
+      status: RecordStatus.ACTIVE
+    }
+  });
+
+  if (remainingActiveAdmins === 0) {
+    throw new Error("Nao e permitido remover o ultimo gerente ativo.");
+  }
+}
+
+export async function updateUserRoleAction(formData: FormData) {
+  const currentUser = await requireActionPermission("users:write");
+  const id = requiredText(formData, "id", "Usuario");
+  const role = requiredText(formData, "role", "Perfil") as UserRole;
+
+  if (!Object.values(UserRole).includes(role)) {
+    throw new Error("Perfil de usuario invalido.");
+  }
+
+  if (id === currentUser.id) {
+    throw new Error("Usuario nao pode alterar o proprio perfil por esta tela.");
+  }
+
+  const targetUser = await getEditableUser(id);
+
+  if (
+    targetUser.role === UserRole.ADMIN &&
+    targetUser.status === RecordStatus.ACTIVE &&
+    role !== UserRole.ADMIN
+  ) {
+    await assertCanRemoveActiveAdmin(id);
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      role,
+      sessionVersion: { increment: 1 }
+    }
+  });
+
+  await recordSecurityEvent({
+    eventType: SecurityEventType.USER_ROLE_UPDATED,
+    actorUserId: currentUser.id,
+    subjectUserId: id,
+    metadata: {
+      previousRole: targetUser.role,
+      nextRole: role
+    }
+  });
+
+  revalidatePath("/usuarios");
+}
+
 export async function inactivateUserAction(formData: FormData) {
   const currentUser = await requireActionPermission("users:write");
   const id = requiredText(formData, "id", "Usuario");
@@ -78,18 +137,7 @@ export async function inactivateUserAction(formData: FormData) {
     targetUser.role === UserRole.ADMIN &&
     targetUser.status === RecordStatus.ACTIVE
   ) {
-    const remainingActiveAdmins = await prisma.user.count({
-      where: {
-        id: { not: id },
-        email: { not: SYSTEM_USER_EMAIL },
-        role: UserRole.ADMIN,
-        status: RecordStatus.ACTIVE
-      }
-    });
-
-    if (remainingActiveAdmins === 0) {
-      throw new Error("Nao e permitido inativar o ultimo administrador ativo.");
-    }
+    await assertCanRemoveActiveAdmin(id);
   }
 
   await prisma.user.update({

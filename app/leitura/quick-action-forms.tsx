@@ -1,12 +1,15 @@
 import { randomUUID } from "crypto";
+import Link from "next/link";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
   ArrowUpFromLine,
-  ClipboardCheck
+  ClipboardCheck,
+  ShoppingCart
 } from "lucide-react";
 import type { StorageLocation, Supplier } from "@prisma/client";
 
+import { StorageLocationPicker } from "@/components/location/storage-location-picker";
 import type { BarcodeLookupProduct } from "@/services/barcode.service";
 
 import {
@@ -30,8 +33,9 @@ type QuickActionFormsProps = {
   returnMode?: "balcao";
   counterMode?: boolean;
   balancesWithStock: BarcodeLookupProduct["balances"];
-  activeLocations: Pick<StorageLocation, "id" | "code" | "name">[];
+  activeLocations: Pick<StorageLocation, "id" | "code" | "name" | "type">[];
   activeSuppliers: Pick<Supplier, "id" | "name">[];
+  canSellStock: boolean;
   canWriteStock: boolean;
   canAuditInventory: boolean;
 };
@@ -78,13 +82,27 @@ export function QuickActionForms({
   balancesWithStock,
   activeLocations,
   activeSuppliers,
+  canSellStock,
   canWriteStock,
   canAuditInventory
 }: QuickActionFormsProps) {
   const firstStockLocationId = balancesWithStock[0]?.storageLocationId ?? "";
   const firstActiveLocationId = activeLocations[0]?.id ?? "";
+  const activeLocationOptions = activeLocations.map((location) => ({
+    id: location.id,
+    code: location.code,
+    name: location.name,
+    type: location.type
+  }));
+  const stockLocationOptions = balancesWithStock.map((balance) => ({
+    id: balance.storageLocationId,
+    code: balance.storageLocation.code,
+    name: balance.storageLocation.name,
+    type: balance.storageLocation.type,
+    quantity: balance.quantity
+  }));
 
-  if (!canWriteStock && !canAuditInventory) {
+  if (!canSellStock && !canWriteStock && !canAuditInventory) {
     return null;
   }
 
@@ -93,6 +111,19 @@ export function QuickActionForms({
       <p className="mb-3 text-sm font-semibold text-ink">Acoes rapidas</p>
 
       <div className="flex flex-col gap-2">
+        {canSellStock ? (
+          <Link
+            href={`/movimentacoes/venda?productId=${product.id}`}
+            className={summaryClassName(counterMode)}
+          >
+            <span className="inline-flex items-center gap-2">
+              <ShoppingCart aria-hidden className="h-4 w-4" />
+              Venda
+            </span>
+            <span className="text-xs text-stone-500">Abrir</span>
+          </Link>
+        ) : null}
+
         {canWriteStock ? (
           <>
             <details className={detailsClassName(counterMode ? "order-2" : "")}>
@@ -132,26 +163,14 @@ export function QuickActionForms({
                     className={inputClass}
                   />
                 </label>
-                <label className="lg:col-span-2">
-                  <span className="mb-1 block text-xs font-medium text-stone-600">
-                    Destino
-                  </span>
-                  <select
-                    name="destinationLocationId"
-                    required
-                    defaultValue={firstActiveLocationId}
-                    className={selectClass}
-                  >
-                    <option value="" disabled>
-                      Selecione
-                    </option>
-                    {activeLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {location.code} - {location.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <StorageLocationPicker
+                  name="destinationLocationId"
+                  label="Destino"
+                  locations={activeLocationOptions}
+                  defaultValue={firstActiveLocationId}
+                  compact
+                  className="lg:col-span-3"
+                />
                 <label className="lg:col-span-2">
                   <span className="mb-1 block text-xs font-medium text-stone-600">
                     Fornecedor
@@ -228,26 +247,15 @@ export function QuickActionForms({
                       className={inputClass}
                     />
                   </label>
-                  <label className="lg:col-span-2">
-                    <span className="mb-1 block text-xs font-medium text-stone-600">
-                      Origem
-                    </span>
-                    <select
-                      name="sourceLocationId"
-                      required
-                      defaultValue={firstStockLocationId}
-                      className={selectClass}
-                    >
-                      {balancesWithStock.map((balance) => (
-                        <option
-                          key={balance.storageLocationId}
-                          value={balance.storageLocationId}
-                        >
-                          {balance.storageLocation.code} - {balance.quantity}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <StorageLocationPicker
+                    name="sourceLocationId"
+                    label="Origem"
+                    locations={stockLocationOptions}
+                    defaultValue={firstStockLocationId}
+                    compact
+                    showQuantity
+                    className="lg:col-span-3"
+                  />
                   <label className="lg:col-span-2">
                     <span className="mb-1 block text-xs font-medium text-stone-600">
                       Motivo
@@ -317,46 +325,22 @@ export function QuickActionForms({
                       className={inputClass}
                     />
                   </label>
-                  <label className="lg:col-span-2">
-                    <span className="mb-1 block text-xs font-medium text-stone-600">
-                      Origem
-                    </span>
-                    <select
-                      name="sourceLocationId"
-                      required
-                      defaultValue={firstStockLocationId}
-                      className={selectClass}
-                    >
-                      {balancesWithStock.map((balance) => (
-                        <option
-                          key={balance.storageLocationId}
-                          value={balance.storageLocationId}
-                        >
-                          {balance.storageLocation.code} - {balance.quantity}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="lg:col-span-2">
-                    <span className="mb-1 block text-xs font-medium text-stone-600">
-                      Destino
-                    </span>
-                    <select
-                      name="destinationLocationId"
-                      required
-                      defaultValue=""
-                      className={selectClass}
-                    >
-                      <option value="" disabled>
-                        Selecione
-                      </option>
-                      {activeLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.code} - {location.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <StorageLocationPicker
+                    name="sourceLocationId"
+                    label="Origem"
+                    locations={stockLocationOptions}
+                    defaultValue={firstStockLocationId}
+                    compact
+                    showQuantity
+                    className="lg:col-span-3"
+                  />
+                  <StorageLocationPicker
+                    name="destinationLocationId"
+                    label="Destino"
+                    locations={activeLocationOptions}
+                    compact
+                    className="lg:col-span-3"
+                  />
                   <label className="lg:col-span-2">
                     <span className="mb-1 block text-xs font-medium text-stone-600">
                       Observacoes
@@ -399,26 +383,14 @@ export function QuickActionForms({
                 name="idempotencyKey"
                 value={`quick-inventory:${randomUUID()}`}
               />
-              <label className="lg:col-span-2">
-                <span className="mb-1 block text-xs font-medium text-stone-600">
-                  Local
-                </span>
-                <select
-                  name="storageLocationId"
-                  required
-                  defaultValue={firstStockLocationId || firstActiveLocationId}
-                  className={selectClass}
-                >
-                  <option value="" disabled>
-                    Selecione
-                  </option>
-                  {activeLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.code} - {location.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <StorageLocationPicker
+                name="storageLocationId"
+                label="Local"
+                locations={activeLocationOptions}
+                defaultValue={firstStockLocationId || firstActiveLocationId}
+                compact
+                className="lg:col-span-3"
+              />
               <label>
                 <span className="mb-1 block text-xs font-medium text-stone-600">
                   Contada

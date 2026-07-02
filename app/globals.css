@@ -32,7 +32,25 @@ button,
 input,
 select,
 textarea {
+  min-width: 0;
   font: inherit;
+}
+
+label {
+  min-width: 0;
+}
+
+main,
+section,
+form,
+fieldset {
+  min-width: 0;
+}
+
+main > *,
+main section > *,
+main form > * {
+  min-width: 0;
 }
 
 a {

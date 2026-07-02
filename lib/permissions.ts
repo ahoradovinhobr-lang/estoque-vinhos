@@ -2,9 +2,11 @@ import { UserRole } from "@prisma/client";
 
 export type Permission =
   | "products:write"
+  | "products:delete"
   | "locations:write"
   | "suppliers:write"
   | "stock:read"
+  | "stock:sale"
   | "stock:write"
   | "stock:reverse"
   | "inventory:audit"
@@ -16,9 +18,11 @@ export type Permission =
 const rolePermissions: Record<UserRole, Permission[]> = {
   [UserRole.ADMIN]: [
     "products:write",
+    "products:delete",
     "locations:write",
     "suppliers:write",
     "stock:read",
+    "stock:sale",
     "stock:write",
     "stock:reverse",
     "inventory:audit",
@@ -28,12 +32,14 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "imports:write"
   ],
   [UserRole.ESTOQUE]: [
+    "products:write",
     "stock:read",
+    "stock:sale",
     "stock:write",
     "inventory:audit",
     "reports:read"
   ],
-  [UserRole.CONSULTA]: ["stock:read"]
+  [UserRole.CONSULTA]: ["stock:read", "stock:sale"]
 };
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {

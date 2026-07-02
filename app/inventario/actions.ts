@@ -41,6 +41,7 @@ function requiredInteger(
 
 function revalidateInventoryPaths() {
   revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath("/busca");
   revalidatePath("/leitura");
   revalidatePath("/inventario");

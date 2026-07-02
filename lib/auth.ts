@@ -10,15 +10,7 @@ import {
   type Permission
 } from "@/lib/permissions";
 
-const SESSION_COOKIE =
-  process.env.NODE_ENV === "production"
-    ? "__Host-estoque_session"
-    : "estoque_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 4;
-const MFA_CHALLENGE_COOKIE =
-  process.env.NODE_ENV === "production"
-    ? "__Host-estoque_mfa_challenge"
-    : "estoque_mfa_challenge";
 const MFA_CHALLENGE_MAX_AGE_SECONDS = 60 * 10;
 
 type SessionPayload = {
@@ -61,6 +53,27 @@ function authSecret(): string {
 
 export function isAuthConfigured(): boolean {
   return authSecret().length >= 32;
+}
+
+function useSecureCookies(): boolean {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_INSECURE_LOCAL_COOKIES !== "true"
+  );
+}
+
+function sessionCookieName(): string {
+  return useSecureCookies() ? "__Host-estoque_session" : "estoque_session";
+}
+
+function mfaChallengeCookieName(): string {
+  return useSecureCookies()
+    ? "__Host-estoque_mfa_challenge"
+    : "estoque_mfa_challenge";
+}
+
+function requireAdminMfaSetup(): boolean {
+  return process.env.REQUIRE_ADMIN_MFA_SETUP !== "false";
 }
 
 function base64Url(value: string | Buffer): string {
@@ -145,6 +158,7 @@ function requiresAdminMfaSetup(
   user: Pick<AuthenticatedUser, "role" | "mfaEnabled" | "mustChangePassword">
 ): boolean {
   return (
+    requireAdminMfaSetup() &&
     user.role === UserRole.ADMIN && !user.mfaEnabled && !user.mustChangePassword
   );
 }
@@ -158,6 +172,14 @@ export function authenticatedHomePath(
 
   if (requiresAdminMfaSetup(user)) {
     return "/minha-conta/mfa";
+  }
+
+  if (hasPermission(user.role, "reports:read")) {
+    return "/dashboard";
+  }
+
+  if (hasPermission(user.role, "stock:read")) {
+    return "/leitura";
   }
 
   return "/";
@@ -188,10 +210,10 @@ export async function createSession(userId: string): Promise<void> {
   } satisfies SessionPayload);
   const cookieStore = await cookies();
 
-  cookieStore.set(SESSION_COOKIE, token, {
+  cookieStore.set(sessionCookieName(), token, {
     httpOnly: true,
     sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookies(),
     maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/"
   });
@@ -229,10 +251,10 @@ export async function createMfaChallenge(userId: string): Promise<void> {
   } satisfies MfaChallengePayload);
   const cookieStore = await cookies();
 
-  cookieStore.set(MFA_CHALLENGE_COOKIE, token, {
+  cookieStore.set(mfaChallengeCookieName(), token, {
     httpOnly: true,
     sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookies(),
     maxAge: MFA_CHALLENGE_MAX_AGE_SECONDS,
     path: "/"
   });
@@ -241,7 +263,7 @@ export async function createMfaChallenge(userId: string): Promise<void> {
 export async function clearMfaChallenge(): Promise<void> {
   const cookieStore = await cookies();
 
-  cookieStore.delete(MFA_CHALLENGE_COOKIE);
+  cookieStore.delete(mfaChallengeCookieName());
   cookieStore.delete("estoque_mfa_challenge");
   cookieStore.delete("__Host-estoque_mfa_challenge");
 }
@@ -249,17 +271,17 @@ export async function clearMfaChallenge(): Promise<void> {
 export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
 
-  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(sessionCookieName());
   cookieStore.delete("estoque_session");
   cookieStore.delete("__Host-estoque_session");
-  cookieStore.delete(MFA_CHALLENGE_COOKIE);
+  cookieStore.delete(mfaChallengeCookieName());
   cookieStore.delete("estoque_mfa_challenge");
   cookieStore.delete("__Host-estoque_mfa_challenge");
 }
 
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(sessionCookieName())?.value;
   const session = token ? verifySessionToken(token) : null;
 
   if (!session) {
@@ -300,7 +322,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
 
 export async function getMfaChallenge(): Promise<MfaChallenge | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(MFA_CHALLENGE_COOKIE)?.value;
+  const token = cookieStore.get(mfaChallengeCookieName())?.value;
   const challenge = token ? verifyMfaChallengeToken(token) : null;
 
   if (!challenge) {

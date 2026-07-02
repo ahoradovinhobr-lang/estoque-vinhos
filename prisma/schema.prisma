@@ -93,6 +93,7 @@ enum SecurityEventType {
   USER_CREATED       @map("user_created")
   USER_INACTIVATED   @map("user_inactivated")
   USER_REACTIVATED   @map("user_reactivated")
+  USER_ROLE_UPDATED  @map("user_role_updated")
   MFA_SUCCESS        @map("mfa_success")
   MFA_FAILURE        @map("mfa_failure")
   MFA_ENABLED        @map("mfa_enabled")

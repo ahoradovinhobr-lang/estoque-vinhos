@@ -13,13 +13,14 @@ import {
   Menu,
   Search,
   ShieldCheck,
+  ShoppingCart,
   Truck,
   Upload,
   Users,
   X,
   type LucideIcon
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { logoutAction } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -47,14 +48,27 @@ export function MobileNavigation({
   navigation,
   userName,
   userRoleLabel,
-  showMfaLink
+  showMfaLink,
+  showSaleLink
 }: {
   navigation: MobileNavigationItem[];
   userName: string;
   userRoleLabel: string;
   showMfaLink: boolean;
+  showSaleLink: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   return (
     <>
@@ -66,15 +80,26 @@ export function MobileNavigation({
               Estoque operacional
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Abrir menu"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-300 bg-white text-stone-700 hover:bg-stone-50"
-          >
-            <Menu aria-hidden className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {showSaleLink ? (
+              <Link
+                href="/movimentacoes/venda"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cellar px-3 text-sm font-semibold text-white hover:bg-cellarDark"
+              >
+                <ShoppingCart aria-hidden className="h-4 w-4" />
+                Venda
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              aria-label="Abrir menu"
+              aria-expanded={open}
+              onClick={() => setOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-300 bg-white text-stone-700 hover:bg-stone-50"
+            >
+              <Menu aria-hidden className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -90,7 +115,7 @@ export function MobileNavigation({
             className="absolute inset-0 bg-black/35"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative flex h-full w-[min(20rem,85vw)] flex-col border-r border-stone-200 bg-white px-4 py-5 shadow-xl">
+          <aside className="relative flex h-dvh max-h-dvh w-[min(20rem,85vw)] flex-col overflow-hidden border-r border-stone-200 bg-white px-4 py-5 shadow-xl">
             <div className="mb-5 flex shrink-0 items-start justify-between gap-3">
               <div className="min-w-0">
                 <BrandLogo className="h-auto w-44 max-w-full" />
@@ -108,7 +133,7 @@ export function MobileNavigation({
               </button>
             </div>
 
-            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1">
               {navigation.map((item) => {
                 const Icon = iconMap[item.iconKey];
                 return (

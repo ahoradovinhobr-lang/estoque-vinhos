@@ -35,6 +35,20 @@ type ExitInput = MovementBaseInput & {
   quantity: number;
 };
 
+type SaleExitInput = {
+  userId: string;
+  channel: string;
+  externalReference?: string | null;
+  notes?: string | null;
+  occurredAt?: Date | string | null;
+  idempotencyKey?: string | null;
+  items: Array<{
+    productId: string;
+    sourceLocationId: string;
+    quantity: number;
+  }>;
+};
+
 type TransferInput = MovementBaseInput & {
   sourceLocationId: string;
   destinationLocationId: string;
@@ -267,6 +281,111 @@ export async function createExit(input: ExitInput) {
       where: { id: movement.id },
       include: { lines: true }
     });
+  }, serializable);
+}
+
+export async function createSaleExit(input: SaleExitInput) {
+  const channel = input.channel.trim();
+  const externalReference = input.externalReference?.trim() || null;
+  const saleKey = input.idempotencyKey?.trim() || null;
+  const saleLabel = externalReference
+    ? `${channel} ${externalReference}`
+    : channel;
+  const reason = `Venda - ${saleLabel}`;
+  const notes = [saleKey ? `Venda agrupada: ${saleKey}` : null, input.notes]
+    .filter((item): item is string => Boolean(item?.trim()))
+    .join(" | ");
+
+  if (!channel) {
+    throw new Error("Canal da venda e obrigatorio.");
+  }
+
+  if (input.items.length === 0) {
+    throw new Error("Informe ao menos um item para venda.");
+  }
+
+  const groupedItems = Array.from(
+    input.items.reduce((items, item) => {
+      assertPositiveQuantity(item.quantity);
+
+      const key = `${item.productId}:${item.sourceLocationId}`;
+      const existing = items.get(key);
+
+      items.set(key, {
+        productId: item.productId,
+        sourceLocationId: item.sourceLocationId,
+        quantity: (existing?.quantity ?? 0) + item.quantity
+      });
+
+      return items;
+    }, new Map<string, { productId: string; sourceLocationId: string; quantity: number }>())
+  ).map(([, item]) => item);
+
+  return prisma.$transaction(async (tx) => {
+    const movements = [];
+
+    for (const [index, item] of groupedItems.entries()) {
+      const itemIdempotencyKey = saleKey ? `${saleKey}:${index + 1}` : null;
+      const existing = await findExistingByIdempotencyKey(
+        tx,
+        itemIdempotencyKey
+      );
+      if (existing) {
+        movements.push(existing);
+        continue;
+      }
+
+      await assertActiveProduct(tx, item.productId);
+      await assertActiveLocation(tx, item.sourceLocationId);
+
+      const before = await getBalanceQuantity(
+        tx,
+        item.productId,
+        item.sourceLocationId
+      );
+
+      if (before < item.quantity) {
+        throw new Error("Saldo insuficiente em um dos itens da venda.");
+      }
+
+      const movement = await tx.stockMovement.create({
+        data: {
+          productId: item.productId,
+          movementType: MovementType.EXIT,
+          quantity: item.quantity,
+          sourceLocationId: item.sourceLocationId,
+          notes: notes || null,
+          reason,
+          userId: input.userId,
+          idempotencyKey: itemIdempotencyKey,
+          occurredAt: parseOccurredAt(input.occurredAt)
+        }
+      });
+
+      await setBalanceQuantity(
+        tx,
+        item.productId,
+        item.sourceLocationId,
+        before - item.quantity
+      );
+
+      await createLine(tx, {
+        stockMovementId: movement.id,
+        productId: item.productId,
+        storageLocationId: item.sourceLocationId,
+        quantityBefore: before,
+        quantityDelta: -item.quantity
+      });
+
+      movements.push(
+        await tx.stockMovement.findUniqueOrThrow({
+          where: { id: movement.id },
+          include: { lines: true }
+        })
+      );
+    }
+
+    return movements;
   }, serializable);
 }
 

@@ -10,7 +10,6 @@ type ScanControls = {
 
 type CameraState = "idle" | "starting" | "scanning";
 type BarcodeSource = "input" | "camera";
-type ReadingMode = "padrao" | "balcao";
 
 function looksLikeBarcode(value: string): boolean {
   const normalized = value.replace(/\s+/g, "");
@@ -20,7 +19,7 @@ function looksLikeBarcode(value: string): boolean {
 function cameraErrorMessage(error: unknown): string {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError") {
-      return "Acesso a camera negado pelo navegador.";
+      return "Acesso a camera negado. Verifique a permissao da camera e use o endereco HTTPS do app no celular.";
     }
 
     if (error.name === "NotFoundError") {
@@ -35,12 +34,23 @@ function cameraErrorMessage(error: unknown): string {
   return "Nao foi possivel iniciar a camera.";
 }
 
+function secureCameraUrl(): string {
+  const host = window.location.hostname;
+
+  if (!host) {
+    return "o endereco HTTPS do app";
+  }
+
+  const path = window.location.pathname || "/leitura";
+  const search = window.location.search || "";
+
+  return `https://${host}:3443${path}${search}`;
+}
+
 export function BarcodeReader({
-  initialValue,
-  mode
+  initialValue
 }: {
   initialValue: string;
-  mode: ReadingMode;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -50,7 +60,6 @@ export function BarcodeReader({
   const [term, setTerm] = useState(initialValue);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const isCounterMode = mode === "balcao";
 
   function focusInput() {
     window.setTimeout(() => inputRef.current?.focus(), 50);
@@ -66,10 +75,6 @@ export function BarcodeReader({
   function goToValue(value: string, source: BarcodeSource) {
     const normalized = value.trim();
     const params = new URLSearchParams();
-
-    if (isCounterMode) {
-      params.set("modo", "balcao");
-    }
 
     setTerm(normalized);
 
@@ -95,8 +100,18 @@ export function BarcodeReader({
   async function startCamera() {
     setErrorMessage(null);
 
+    if (!window.isSecureContext) {
+      setErrorMessage(
+        `No celular, a camera exige HTTPS. Acesse ${secureCameraUrl()} para usar a leitura por camera.`
+      );
+      focusInput();
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
-      setErrorMessage("Camera indisponivel neste navegador.");
+      setErrorMessage(
+        "Camera indisponivel neste navegador. Use Chrome, Safari ou Edge atualizado pelo endereco HTTPS do app."
+      );
       focusInput();
       return;
     }
@@ -157,13 +172,7 @@ export function BarcodeReader({
   }, []);
 
   return (
-    <section
-      className={
-        isCounterMode
-          ? "rounded-md border border-cellar/25 bg-white p-4 shadow-sm"
-          : "rounded-md border border-stone-200 bg-white p-4"
-      }
-    >
+    <section className="rounded-md border border-cellar/25 bg-white p-4 shadow-sm">
       <form
         className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"
         onSubmit={(event) => {
@@ -183,25 +192,13 @@ export function BarcodeReader({
             autoFocus
             type="search"
             autoComplete="off"
-            placeholder={
-              isCounterMode
-                ? "Bipar, digitar nome ou codigo"
-                : "Nome, SKU, uva, pais, fornecedor ou codigo"
-            }
-            className={
-              isCounterMode
-                ? "h-12 w-full rounded-md border border-stone-300 px-3 text-base outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-                : "h-11 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            }
+            placeholder="Bipar, digitar nome, uva, pais, fornecedor ou codigo"
+            className="h-12 w-full rounded-md border border-stone-300 px-3 text-base outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
           />
         </label>
         <div className="flex items-end">
           <button
-            className={
-              isCounterMode
-                ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-cellar px-5 text-base font-semibold text-white hover:bg-cellarDark lg:w-auto"
-                : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark lg:w-auto"
-            }
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-cellar px-5 text-base font-semibold text-white hover:bg-cellarDark lg:w-auto"
           >
             <Search aria-hidden className="h-4 w-4" />
             Buscar
@@ -212,11 +209,7 @@ export function BarcodeReader({
             <button
               type="button"
               onClick={startCamera}
-              className={
-                isCounterMode
-                  ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
-                  : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
-              }
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
             >
               <Camera aria-hidden className="h-4 w-4" />
               Camera
@@ -225,11 +218,7 @@ export function BarcodeReader({
             <button
               type="button"
               onClick={stopCamera}
-              className={
-                isCounterMode
-                  ? "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
-                  : "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
-              }
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-5 text-base font-medium text-stone-700 hover:bg-stone-50 lg:w-auto"
             >
               <X aria-hidden className="h-4 w-4" />
               Parar

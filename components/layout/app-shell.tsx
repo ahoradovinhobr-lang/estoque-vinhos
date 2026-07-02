@@ -10,6 +10,7 @@ import {
   MapPinned,
   Search,
   ShieldCheck,
+  ShoppingCart,
   Truck,
   Upload,
   Users,
@@ -51,7 +52,13 @@ export type MobileNavigationItem = {
 };
 
 const navigation: NavigationItem[] = [
-  { href: "/", label: "Dashboard", iconKey: "barChart", icon: BarChart3 },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    iconKey: "barChart",
+    icon: BarChart3,
+    permission: "reports:read"
+  },
   {
     href: "/leitura",
     label: "Busca e leitura",
@@ -125,8 +132,8 @@ const navigation: NavigationItem[] = [
 ];
 
 const roleLabels: Record<UserRole, string> = {
-  ADMIN: "Admin",
-  ESTOQUE: "Estoque",
+  ADMIN: "Gerente",
+  ESTOQUE: "Estoquista",
   CONSULTA: "Consulta"
 };
 
@@ -161,6 +168,7 @@ export async function AppShell({
         userName={user.name}
         userRoleLabel={roleLabels[user.role]}
         showMfaLink={user.role === "ADMIN"}
+        showSaleLink={hasPermission(user.role, "stock:sale")}
       />
 
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-stone-200 bg-white px-4 py-5 lg:flex">
@@ -173,6 +181,16 @@ export async function AppShell({
             Estoque operacional
           </p>
         </Link>
+
+        {hasPermission(user.role, "stock:sale") ? (
+          <Link
+            href="/movimentacoes/venda"
+            className="mb-4 inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-cellar px-4 text-sm font-semibold text-white hover:bg-cellarDark"
+          >
+            <ShoppingCart aria-hidden className="h-4 w-4" />
+            Registrar venda
+          </Link>
+        ) : null}
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
           {allowedNavigation.map((item) => {
@@ -219,8 +237,8 @@ export async function AppShell({
         </div>
       </aside>
 
-      <main className="lg:pl-64">
-        <div className="mx-auto min-h-screen max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <main className="min-w-0 lg:pl-64">
+        <div className="mx-auto min-h-screen min-w-0 max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>

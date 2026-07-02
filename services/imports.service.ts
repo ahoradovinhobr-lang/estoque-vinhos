@@ -1,7 +1,6 @@
 import { createHash } from "crypto";
 import {
   ImportStatus,
-  MovementType,
   Prisma,
   ProductType,
   RecordStatus,
@@ -12,6 +11,9 @@ import { normalizeText, supplierKey } from "@/lib/normalize";
 import { parseMoneyInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { parseOptionalHttpUrl } from "@/lib/urls";
+import { normalizeBarcode } from "@/services/barcode.service";
+import { isValidGtin } from "@/services/gtin.service";
+import { generatedInternalSku } from "@/services/product-sku.service";
 
 type Tx = Prisma.TransactionClient;
 
@@ -26,21 +28,18 @@ type ParsedImportRow = {
   supplierName: string | null;
   vintage: string | null;
   barcode: string | null;
+  barcodeInvalid: boolean;
   salePrice: Prisma.Decimal | null;
   salePriceInvalid: boolean;
   photoUrl: string | null;
   photoUrlInvalid: boolean;
-  quantity: number | null;
-  locationCode: string;
   notes: string | null;
 };
 
 export type ImportRowReport = {
   rowNumber: number;
-  sku: string;
+  barcode: string | null;
   name: string;
-  locationCode: string;
-  quantity: number | null;
   status: "valid" | "error";
   action: string;
   errors: string[];
@@ -68,22 +67,22 @@ type ApplyImportResult = ImportSimulationResult & {
 };
 
 const requiredColumns = [
-  "sku",
   "name",
   "type",
   "wine_color",
-  "grape",
-  "quantity",
-  "location_code"
+  "grape"
 ];
 
 const optionalColumns = [
+  "sku",
   "country",
   "supplier",
   "vintage",
   "barcode",
   "sale_price",
   "photo_url",
+  "quantity",
+  "location_code",
   "notes"
 ];
 
@@ -176,19 +175,25 @@ function parseWineColor(value: string): WineColor | null {
   return null;
 }
 
-function parseQuantity(value: string): number | null {
-  const quantity = Number(value.replace(",", "."));
-
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    return null;
-  }
-
-  return quantity;
-}
-
 function optional(value: string): string | null {
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function optionalBarcode(value: string): {
+  value: string | null;
+  invalid: boolean;
+} {
+  const barcode = normalizeBarcode(value);
+
+  if (!barcode) {
+    return { value: null, invalid: false };
+  }
+
+  return {
+    value: barcode,
+    invalid: !isValidGtin(barcode)
+  };
 }
 
 function optionalMoney(value: string): {
@@ -257,10 +262,8 @@ function parseRows(rawText: string): {
       structuralErrors: [
         {
           rowNumber: 1,
-          sku: "",
+          barcode: null,
           name: "",
-          locationCode: "",
-          quantity: null,
           status: "error",
           action: "Corrigir arquivo",
           errors: ["Conteudo da planilha e obrigatorio."],
@@ -281,10 +284,8 @@ function parseRows(rawText: string): {
       structuralErrors: [
         {
           rowNumber: 1,
-          sku: "",
+          barcode: null,
           name: "",
-          locationCode: "",
-          quantity: null,
           status: "error",
           action: "Corrigir arquivo",
           errors: ["Informe cabecalho e pelo menos uma linha de dados."],
@@ -308,10 +309,8 @@ function parseRows(rawText: string): {
       structuralErrors: [
         {
           rowNumber: 1,
-          sku: "",
+          barcode: null,
           name: "",
-          locationCode: "",
-          quantity: null,
           status: "error",
           action: "Corrigir cabecalho",
           errors: [`Colunas obrigatorias ausentes: ${missingColumns.join(", ")}.`],
@@ -333,6 +332,7 @@ function parseRows(rawText: string): {
     }, {});
     const salePrice = optionalMoney(rowValue(row, "sale_price"));
     const photoUrl = optionalHttpUrl(rowValue(row, "photo_url"));
+    const barcode = optionalBarcode(rowValue(row, "barcode"));
 
     return {
       rowNumber: index + 2,
@@ -344,13 +344,12 @@ function parseRows(rawText: string): {
       country: optional(rowValue(row, "country")),
       supplierName: optional(rowValue(row, "supplier")),
       vintage: optional(rowValue(row, "vintage")),
-      barcode: optional(rowValue(row, "barcode")),
+      barcode: barcode.value,
+      barcodeInvalid: barcode.invalid,
       salePrice: salePrice.value,
       salePriceInvalid: salePrice.invalid,
       photoUrl: photoUrl.value,
       photoUrlInvalid: photoUrl.invalid,
-      quantity: parseQuantity(rowValue(row, "quantity")),
-      locationCode: rowValue(row, "location_code").toUpperCase(),
       notes: optional(rowValue(row, "notes"))
     };
   });
@@ -366,11 +365,53 @@ function productIdentity(row: ParsedImportRow): string {
     row.grape,
     row.country ?? "",
     row.supplierName ?? "",
-    row.vintage ?? "",
-    row.barcode ?? ""
+    row.vintage ?? ""
   ]
     .map((value) => normalizeText(String(value)))
     .join("|");
+}
+
+function productLookupWhere(
+  row: ParsedImportRow,
+  supplierId: string | null
+): Prisma.ProductWhereInput {
+  const candidates: Prisma.ProductWhereInput[] = [];
+
+  if (row.sku) {
+    candidates.push({ sku: row.sku });
+  }
+
+  if (row.barcode) {
+    candidates.push({
+      barcode: row.barcode,
+      vintage: row.vintage
+    });
+  }
+
+  if (row.name && row.type && row.wineColor && row.grape) {
+    candidates.push({
+      name: row.name,
+      type: row.type,
+      wineColor: row.wineColor,
+      grape: row.grape,
+      country: row.country,
+      supplierId,
+      vintage: row.vintage
+    });
+  }
+
+  return candidates.length > 0 ? { OR: candidates } : { id: "__none__" };
+}
+
+async function findProductForImport(
+  client: Pick<Tx, "product">,
+  row: ParsedImportRow,
+  supplierId: string | null
+) {
+  return client.product.findFirst({
+    where: productLookupWhere(row, supplierId),
+    include: { productFamily: true }
+  });
 }
 
 function supplierNameWhere(supplierName: string) {
@@ -443,97 +484,72 @@ async function findOrCreateProductFamily(
   });
 }
 
-async function validateImportRows(
-  rows: ParsedImportRow[],
-  hash: string
-): Promise<ImportRowReport[]> {
+async function validateImportRows(rows: ParsedImportRow[]): Promise<ImportRowReport[]> {
   const reports: ImportRowReport[] = [];
-  const seenSkuLocation = new Map<string, number>();
-  const seenSkuIdentity = new Map<string, string>();
-  const seenBarcodeVintage = new Map<string, { rowNumber: number; sku: string }>();
+  const seenProductIdentity = new Map<string, number>();
+  const seenBarcodeVintage = new Map<
+    string,
+    { rowNumber: number; identity: string }
+  >();
 
   for (const row of rows) {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!row.sku) errors.push("SKU e obrigatorio.");
     if (!row.name) errors.push("Nome e obrigatorio.");
     if (!row.type) errors.push("Tipo deve ser wine/vinho ou sparkling/espumante.");
     if (!row.wineColor) errors.push("Cor deve ser red/tinto, white/branco ou rose.");
     if (!row.grape) errors.push("Uva e obrigatoria.");
-    if (!row.locationCode) errors.push("location_code e obrigatorio.");
-    if (!row.quantity) errors.push("Quantidade deve ser inteiro maior que zero.");
+    if (row.barcodeInvalid) {
+      errors.push(
+        "barcode deve ser um GTIN valido com 8, 12, 13 ou 14 digitos."
+      );
+    }
     if (row.salePriceInvalid) errors.push("sale_price deve ser valor monetario valido.");
     if (row.photoUrlInvalid) errors.push("photo_url deve ser URL http ou https valida.");
 
-    const skuLocationKey = `${row.sku}|${row.locationCode}`;
-    const firstDuplicateRow = seenSkuLocation.get(skuLocationKey);
+    const identity = productIdentity(row);
+    const firstDuplicateRow = seenProductIdentity.get(identity);
 
     if (firstDuplicateRow) {
       errors.push(
-        `SKU e local repetidos na linha ${firstDuplicateRow}. Consolide a quantidade antes de importar.`
+        `Produto repetido na linha ${firstDuplicateRow}. Mantenha uma unica linha por cadastro.`
       );
     } else {
-      seenSkuLocation.set(skuLocationKey, row.rowNumber);
-    }
-
-    const identity = productIdentity(row);
-    const existingIdentity = seenSkuIdentity.get(row.sku);
-
-    if (existingIdentity && existingIdentity !== identity) {
-      errors.push(
-        "Mesmo SKU aparece com caracteristicas diferentes na planilha."
-      );
-    } else {
-      seenSkuIdentity.set(row.sku, identity);
+      seenProductIdentity.set(identity, row.rowNumber);
     }
 
     if (row.barcode) {
       const barcodeVintageKey = `${row.barcode}|${row.vintage ?? ""}`;
       const existingBarcode = seenBarcodeVintage.get(barcodeVintageKey);
 
-      if (existingBarcode && existingBarcode.sku !== row.sku) {
+      if (existingBarcode && existingBarcode.identity !== identity) {
         errors.push(
-          `Codigo de barras e safra repetidos com outro SKU na linha ${existingBarcode.rowNumber}.`
+          `Codigo de barras e safra repetidos com outro produto na linha ${existingBarcode.rowNumber}.`
         );
       } else {
         seenBarcodeVintage.set(barcodeVintageKey, {
           rowNumber: row.rowNumber,
-          sku: row.sku
+          identity
         });
       }
     }
 
-    const [location, product, supplier, movementWithKey] = await Promise.all([
-      row.locationCode
-        ? prisma.storageLocation.findUnique({
-            where: { code: row.locationCode }
-          })
-        : null,
-      row.sku
-        ? prisma.product.findUnique({
-            where: { sku: row.sku },
-            include: { productFamily: true }
-          })
-        : null,
-      row.supplierName ? findSupplierByNameForSimulation(row.supplierName) : null,
-      prisma.stockMovement.findUnique({
-        where: { idempotencyKey: `${hash}:line:${row.rowNumber}` }
-      })
-    ]);
-
-    if (!location) {
-      errors.push("Local de armazenamento nao encontrado.");
-    } else if (location.status !== RecordStatus.ACTIVE) {
-      errors.push("Local de armazenamento esta inativo.");
-    }
-
-    if (movementWithKey) {
-      errors.push("Linha ja foi importada anteriormente.");
-    }
+    const supplier = row.supplierName
+      ? await findSupplierByNameForSimulation(row.supplierName)
+      : null;
+    const product = await findProductForImport(
+      prisma,
+      row,
+      supplier?.id ?? null
+    );
 
     if (product && product.status !== RecordStatus.ACTIVE) {
       errors.push("Produto ja existe, mas esta inativo.");
+    }
+
+    if (product && normalizeText(product.name) !== normalizeText(row.name)) {
+      errors.push("Produto existente tem nome diferente.");
     }
 
     if (product && row.type && product.type !== row.type) {
@@ -548,16 +564,39 @@ async function validateImportRows(
       errors.push("Produto existente tem uva diferente.");
     }
 
+    if (
+      product &&
+      row.country &&
+      normalizeText(product.country ?? "") !== normalizeText(row.country)
+    ) {
+      errors.push("Produto existente tem pais diferente.");
+    }
+
+    if (product && (product.vintage ?? "") !== (row.vintage ?? "")) {
+      errors.push("Produto existente tem safra diferente.");
+    }
+
+    if (
+      product &&
+      row.supplierName &&
+      (product.supplierId ?? null) !== (supplier?.id ?? null)
+    ) {
+      errors.push("Produto existente tem fornecedor diferente.");
+    }
+
     if (product && row.barcode && product.barcode && product.barcode !== row.barcode) {
       errors.push("Produto existente tem codigo de barras diferente.");
     }
 
-    if (!product && row.barcode && row.type) {
-      const possibleFamilySupplierId = supplier?.id ?? null;
+    if (row.barcode && row.type) {
+      const possibleFamilySupplierId =
+        supplier?.id ?? product?.supplierId ?? null;
       const possibleFamilyKey = supplierKey(possibleFamilySupplierId);
       const normalizedName = normalizeText(row.name);
       const productsWithBarcode = await prisma.product.findMany({
-        where: { barcode: row.barcode },
+        where: product
+          ? { barcode: row.barcode, id: { not: product.id } }
+          : { barcode: row.barcode },
         include: { productFamily: true }
       });
       const duplicatedInAnotherFamily = productsWithBarcode.find(
@@ -583,16 +622,18 @@ async function validateImportRows(
       warnings.push("Fornecedor sera criado.");
     }
 
+    if (!row.barcode) {
+      warnings.push("Produto sem codigo de barras.");
+    }
+
     reports.push({
       rowNumber: row.rowNumber,
-      sku: row.sku,
+      barcode: row.barcode,
       name: row.name,
-      locationCode: row.locationCode,
-      quantity: row.quantity,
       status: errors.length > 0 ? "error" : "valid",
       action: product
-        ? "Atualizar saldo de produto existente"
-        : "Criar produto e entrada",
+        ? "Atualizar cadastro de produto existente"
+        : "Criar cadastro de produto",
       errors,
       warnings
     });
@@ -614,15 +655,13 @@ export async function simulateInitialImport(input: {
   const rowReports =
     structuralErrors.length > 0
       ? structuralErrors
-      : await validateImportRows(parsedRows, hash);
+      : await validateImportRows(parsedRows);
 
   if (duplicateBatch) {
     rowReports.unshift({
       rowNumber: 1,
-      sku: "",
+      barcode: null,
       name: "",
-      locationCode: "",
-      quantity: null,
       status: "error",
       action: "Arquivo duplicado",
       errors: ["Esta planilha ja foi aplicada anteriormente."],
@@ -640,7 +679,7 @@ export async function simulateInitialImport(input: {
   ).length;
 
   return {
-    fileName: input.fileName.trim() || "importacao-inicial.csv",
+    fileName: input.fileName.trim() || "cadastro-vinhos.csv",
     fileHash: hash,
     totalRows: parsedRows.length,
     validRows,
@@ -653,43 +692,6 @@ export async function simulateInitialImport(input: {
     rawText,
     rows: rowReports
   };
-}
-
-async function upsertBalance(
-  tx: Tx,
-  productId: string,
-  storageLocationId: string,
-  quantity: number
-) {
-  const existingBalance = await tx.inventoryBalance.findUnique({
-    where: {
-      productId_storageLocationId: {
-        productId,
-        storageLocationId
-      }
-    }
-  });
-  const quantityBefore = existingBalance?.quantity ?? 0;
-  const quantityAfter = quantityBefore + quantity;
-
-  await tx.inventoryBalance.upsert({
-    where: {
-      productId_storageLocationId: {
-        productId,
-        storageLocationId
-      }
-    },
-    create: {
-      productId,
-      storageLocationId,
-      quantity: quantityAfter
-    },
-    update: {
-      quantity: quantityAfter
-    }
-  });
-
-  return { quantityBefore, quantityAfter };
 }
 
 export async function applyInitialImport(input: {
@@ -731,94 +733,68 @@ export async function applyInitialImport(input: {
     });
 
     for (const row of parsedRows) {
-      if (!row.type || !row.wineColor || !row.quantity) {
+      if (
+        !row.name ||
+        !row.type ||
+        !row.wineColor ||
+        !row.grape ||
+        row.barcodeInvalid ||
+        row.salePriceInvalid ||
+        row.photoUrlInvalid
+      ) {
         throw new Error(`Linha ${row.rowNumber} invalida.`);
       }
 
-      const location = await tx.storageLocation.findUnique({
-        where: { code: row.locationCode }
-      });
-
-      if (!location || location.status !== RecordStatus.ACTIVE) {
-        throw new Error(`Local invalido na linha ${row.rowNumber}.`);
-      }
-
-      const [supplier, existingProduct] = await Promise.all([
-        findOrCreateSupplier(tx, row.supplierName),
-        tx.product.findUnique({ where: { sku: row.sku } })
-      ]);
-      const family =
-        !existingProduct || supplier
-          ? await findOrCreateProductFamily(tx, {
-              name: row.name,
-              type: row.type,
-              supplierId: supplier?.id ?? null
-            })
-          : null;
-      const product = existingProduct
-        ? await tx.product.update({
-            where: { id: existingProduct.id },
-            data: {
-              name: row.name,
-              ...(family && supplier
-                ? {
-                    productFamilyId: family.id,
-                    supplierId: supplier.id
-                  }
-                : {}),
-              salePrice: row.salePrice ?? undefined,
-              photoUrl: row.photoUrl ?? undefined,
-              notes: row.notes ?? undefined
-            }
-          })
-        : await tx.product.create({
-            data: {
-              productFamilyId: family!.id,
-              sku: row.sku,
-              name: row.name,
-              type: row.type,
-              wineColor: row.wineColor,
-              grape: row.grape,
-              country: row.country,
-              supplierId: supplier?.id ?? null,
-              vintage: row.vintage,
-              barcode: row.barcode,
-              salePrice: row.salePrice,
-              photoUrl: row.photoUrl,
-              notes: row.notes
-            }
-          });
-      const { quantityBefore, quantityAfter } = await upsertBalance(
+      const supplier = await findOrCreateSupplier(tx, row.supplierName);
+      const existingProduct = await findProductForImport(
         tx,
-        product.id,
-        location.id,
-        row.quantity
+        row,
+        supplier?.id ?? null
       );
-      const movement = await tx.stockMovement.create({
-        data: {
-          productId: product.id,
-          movementType: MovementType.ENTRY,
-          quantity: row.quantity,
-          destinationLocationId: location.id,
-          supplierId: supplier?.id ?? null,
-          importBatchId: batch.id,
-          idempotencyKey: `${simulation.fileHash}:line:${row.rowNumber}`,
-          reason: "Importacao inicial",
-          notes: row.notes,
-          userId: input.userId
-        }
+      const effectiveSupplierId =
+        supplier?.id ?? existingProduct?.supplierId ?? null;
+      const family = await findOrCreateProductFamily(tx, {
+        name: row.name,
+        type: row.type,
+        supplierId: effectiveSupplierId
       });
-
-      await tx.stockMovementLine.create({
-        data: {
-          stockMovementId: movement.id,
-          productId: product.id,
-          storageLocationId: location.id,
-          quantityBefore,
-          quantityDelta: row.quantity,
-          quantityAfter
-        }
-      });
+      if (existingProduct) {
+        await tx.product.update({
+          where: { id: existingProduct.id },
+          data: {
+            productFamilyId: family.id,
+            name: row.name,
+            type: row.type,
+            wineColor: row.wineColor,
+            grape: row.grape,
+            country: row.country ?? existingProduct.country,
+            supplierId: effectiveSupplierId,
+            vintage: row.vintage ?? existingProduct.vintage,
+            barcode: row.barcode ?? existingProduct.barcode,
+            salePrice: row.salePrice ?? undefined,
+            photoUrl: row.photoUrl ?? undefined,
+            notes: row.notes ?? undefined
+          }
+        });
+      } else {
+        await tx.product.create({
+          data: {
+            productFamilyId: family.id,
+            sku: row.sku || generatedInternalSku(),
+            name: row.name,
+            type: row.type,
+            wineColor: row.wineColor,
+            grape: row.grape,
+            country: row.country,
+            supplierId: effectiveSupplierId,
+            vintage: row.vintage,
+            barcode: row.barcode,
+            salePrice: row.salePrice,
+            photoUrl: row.photoUrl,
+            notes: row.notes
+          }
+        });
+      }
     }
 
     const importedBatch = await tx.importBatch.update({

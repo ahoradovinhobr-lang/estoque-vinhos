@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRightLeft } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { StorageLocationPicker } from "@/components/location/storage-location-picker";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -45,13 +46,16 @@ export default async function TransferPage({
       </header>
 
       <section className="rounded-md border border-stone-200 bg-white p-4">
-        <form action={registerTransfer} className="grid gap-3 lg:grid-cols-6">
+        <form
+          action={registerTransfer}
+          className="grid gap-3 lg:grid-cols-8"
+        >
           <input
             type="hidden"
             name="idempotencyKey"
             value={`transfer:${randomUUID()}`}
           />
-          <label className="lg:col-span-3">
+          <label className="lg:col-span-4">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Produto
             </span>
@@ -84,47 +88,19 @@ export default async function TransferPage({
               className="h-10 w-full rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
             />
           </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Origem
-            </span>
-            <select
-              name="sourceLocationId"
-              required
-              defaultValue=""
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.code}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium text-stone-700">
-              Destino
-            </span>
-            <select
-              name="destinationLocationId"
-              required
-              defaultValue=""
-              className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.code}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="lg:col-span-5">
+          <StorageLocationPicker
+            name="sourceLocationId"
+            label="Origem"
+            locations={locations}
+            className="lg:col-span-3"
+          />
+          <StorageLocationPicker
+            name="destinationLocationId"
+            label="Destino"
+            locations={locations}
+            className="lg:col-span-3"
+          />
+          <label className="lg:col-span-7">
             <span className="mb-1 block text-sm font-medium text-stone-700">
               Observacoes
             </span>

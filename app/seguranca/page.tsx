@@ -23,7 +23,8 @@ const eventLabels: Record<SecurityEventType, string> = {
   PASSWORD_RESET: "Senha resetada",
   USER_CREATED: "Usuario criado",
   USER_INACTIVATED: "Usuario inativado",
-  USER_REACTIVATED: "Usuario reativado"
+  USER_REACTIVATED: "Usuario reativado",
+  USER_ROLE_UPDATED: "Perfil alterado"
 };
 
 const barcodeStatusLabels: Record<BarcodeLookupStatus, string> = {
@@ -176,7 +177,7 @@ export default async function SecurityEventsPage() {
                     </td>
                     <td className="px-4 py-3 text-stone-600">
                       {lookup.matchedProduct
-                        ? `${lookup.matchedProduct.name} (${lookup.matchedProduct.sku})`
+                        ? lookup.matchedProduct.name
                         : "-"}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-ink">

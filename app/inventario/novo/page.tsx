@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { StorageLocationPicker } from "@/components/location/storage-location-picker";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -69,8 +70,8 @@ export default async function NewInventoryAuditPage({
         </h2>
       </header>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <div className="rounded-md border border-stone-200 bg-white p-4">
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[1fr_0.9fr]">
+        <div className="min-w-0 rounded-md border border-stone-200 bg-white p-4">
           <form
             action={registerInventoryAudit}
             className="grid gap-3 lg:grid-cols-6"
@@ -100,26 +101,13 @@ export default async function NewInventoryAuditPage({
                 ))}
               </select>
             </label>
-            <label className="lg:col-span-2">
-              <span className="mb-1 block text-sm font-medium text-stone-700">
-                Local conferido
-              </span>
-              <select
-                name="storageLocationId"
-                required
-                defaultValue={selectedLocationId}
-                className="h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-cellar focus:ring-2 focus:ring-cellar/15"
-              >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.code} - {location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <StorageLocationPicker
+              name="storageLocationId"
+              label="Local conferido"
+              locations={locations}
+              defaultValue={selectedLocationId}
+              className="lg:col-span-4"
+            />
             <label className="lg:col-span-2">
               <span className="mb-1 block text-sm font-medium text-stone-700">
                 Quantidade contada
@@ -175,7 +163,7 @@ export default async function NewInventoryAuditPage({
           </form>
         </div>
 
-        <div className="rounded-md border border-stone-200 bg-white">
+        <div className="min-w-0 rounded-md border border-stone-200 bg-white">
           <div className="border-b border-stone-200 px-4 py-3">
             <h3 className="text-base font-semibold text-ink">
               Saldos atuais

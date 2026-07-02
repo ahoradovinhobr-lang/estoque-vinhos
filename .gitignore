@@ -8,5 +8,6 @@ coverage/
 .env*.local
 *.log
 *.zip
+tsconfig.tsbuildinfo
 prisma/*.db
 prisma/*.db-journal
